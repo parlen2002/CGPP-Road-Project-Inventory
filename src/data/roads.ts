@@ -12,6 +12,45 @@ export type RoadClass = "National" | "City";
 export type Surface = "Concrete" | "Asphalt" | "Gravel" | "Earth";
 export type Condition = "Good" | "Fair" | "Poor";
 
+/* Pavement treatments — the works that put each road on the ladder:
+   Road Opening (earth) → Road Graveling (gravel) → Asphalting → Concreting.
+   They are the key to reading the network: how much was opened, how much
+   is still earth/gravel, how much has been asphalted or concreted. */
+export type Treatment = "Road Opening" | "Road Graveling" | "Asphalting" | "Concreting";
+
+export const SURFACE_TREATMENT: Record<Surface, Treatment> = {
+  Earth: "Road Opening",
+  Gravel: "Road Graveling",
+  Asphalt: "Asphalting",
+  Concrete: "Concreting",
+};
+
+export const TREATMENT_SHORT: Record<Treatment, string> = {
+  "Road Opening": "OPEN",
+  "Road Graveling": "GRVL",
+  Asphalting: "ASPH",
+  Concreting: "CONC",
+};
+
+export const TREATMENT_COLOR: Record<Treatment, string> = {
+  "Road Opening": "#de5a36",
+  "Road Graveling": "#f0a32b",
+  Asphalting: "#12897e",
+  Concreting: "#1e7a58",
+};
+
+/** Year the treatment that produced the segment's present surface was executed. */
+export const TREATMENT_YEAR: Record<string, number> = {
+  "rd-rizal": 2022, "rd-malvar": 2021, "rd-lacao": 2023, "rd-valencia": 2020,
+  "rd-burgos": 2024, "rd-mandaragat": 2019, "rd-tiniguiban": 2018, "rd-sanman": 2021,
+  "rd-libis": 2020, "rd-tagumpay": 2017, "rd-iwahig": 2019, "rd-sicsican": 2016,
+  "rd-bacungan": 2015, "rd-baywalk": 2023,
+};
+
+export function treatmentOf(r: Road): { treatment: Treatment; year: number } {
+  return { treatment: SURFACE_TREATMENT[r.surface], year: TREATMENT_YEAR[r.id] ?? 0 };
+}
+
 export interface Road {
   id: string;
   name: string;
@@ -144,6 +183,24 @@ export const nationalRoads = roads.filter((r) => r.roadClass === "National");
 export const cityNetworkKm = +cityRoads.reduce((s, r) => s + r.lengthKm, 0).toFixed(1); // 35.0
 export const nationalKm = +nationalRoads.reduce((s, r) => s + r.lengthKm, 0).toFixed(1);
 
+/* ── pavement ladder — how the opened city network stands ──────────────
+   opened  = every inventoried alignment (road opening is the first rung)
+   earth / gravel = still unsurfaced; asphalt / concrete = paved        */
+const kmBySurface = (s: Surface) =>
+  +cityRoads.filter((r) => r.surface === s).reduce((sum, r) => sum + r.lengthKm, 0).toFixed(1);
+
+export const surfaceLadder = {
+  opened: cityNetworkKm,
+  segments: cityRoads.length,
+  earth: kmBySurface("Earth"),
+  gravel: kmBySurface("Gravel"),
+  asphalt: kmBySurface("Asphalt"),
+  concrete: kmBySurface("Concrete"),
+};
+
+export const unsurfacedKm = +(surfaceLadder.earth + surfaceLadder.gravel).toFixed(1);
+export const pavedKm = +(surfaceLadder.asphalt + surfaceLadder.concrete).toFixed(1);
+
 export const barangayCentroids: { name: string; point: [number, number] }[] = [
   { name: "San Pedro", point: [9.7360, 118.7390] },
   { name: "Liwanag", point: [9.7385, 118.7310] },
@@ -174,23 +231,23 @@ export const BARANGAY_POINTS: Record<string, [number, number]> = {
 };
 
 export const barangayCount = 66;
-export const pavedPct = 59.1; // share of the city network with concrete/asphalt surface
+export const pavedPct = +((pavedKm / surfaceLadder.opened) * 100).toFixed(1); // concrete + asphalt share
 
 export const networkByYear = [
   { year: 2019, km: 12.6 }, { year: 2020, km: 13.8 }, { year: 2021, km: 14.9 },
   { year: 2022, km: 16.2 }, { year: 2023, km: 17.4 }, { year: 2024, km: 18.6 },
-  { year: 2025, km: 19.8 }, { year: 2026, km: 20.7 },
+  { year: 2025, km: 19.8 }, { year: 2026, km: pavedKm },
 ];
 
 export const surfaceMix = [
-  { label: "Concrete", km: 15.5, color: "#1e7a58" },
-  { label: "Asphalt", km: 5.2, color: "#12897e" },
-  { label: "Gravel", km: 8.7, color: "#f0a32b" },
-  { label: "Earth", km: 5.6, color: "#de5a36" },
+  { label: "Concrete", km: surfaceLadder.concrete, color: "#1e7a58" },
+  { label: "Asphalt", km: surfaceLadder.asphalt, color: "#12897e" },
+  { label: "Gravel", km: surfaceLadder.gravel, color: "#f0a32b" },
+  { label: "Earth", km: surfaceLadder.earth, color: "#de5a36" },
 ];
 
-export const conditionMix = [
-  { label: "Good", km: 8.0, color: "#1e7a58" },
-  { label: "Fair", km: 14.6, color: "#f0a32b" },
-  { label: "Poor", km: 12.4, color: "#de5a36" },
-];
+export const conditionMix = (["Good", "Fair", "Poor"] as Condition[]).map((c, i) => ({
+  label: c,
+  km: +cityRoads.filter((r) => r.condition === c).reduce((s, r) => s + r.lengthKm, 0).toFixed(1),
+  color: ["#1e7a58", "#f0a32b", "#de5a36"][i],
+}));

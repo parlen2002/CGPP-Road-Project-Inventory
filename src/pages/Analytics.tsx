@@ -86,8 +86,8 @@ export default function Analytics() {
         <Reveal className="lg:col-span-4" delay={80}>
           <div className="relative h-full rounded-[4px] border border-line-300 bg-paper-100 p-5">
             <CornerTicks color="border-ink-800/50" />
-            <h2 className="font-display mb-1 text-2xl font-bold tracking-wide text-ink-900 uppercase">Surface Mix</h2>
-            <p className="mb-4 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">{cityNetworkKm} km OCE city network · national excluded</p>
+            <h2 className="font-display mb-1 text-2xl font-bold tracking-wide text-ink-900 uppercase">Treatment Mix</h2>
+            <p className="mb-4 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">concreting · asphalting · graveling · opening — {cityNetworkKm} km opened, national excluded</p>
             <StackedBar data={surfaceMix} />
             <div className="my-5 h-px bg-line-300" />
             <h2 className="font-display mb-1 text-2xl font-bold tracking-wide text-ink-900 uppercase">Condition Exposure</h2>

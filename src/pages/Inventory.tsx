@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { cityRoads as roads, cityNetworkKm, nationalKm, type Road } from "../data/roads";
+import {
+  cityRoads as roads, cityNetworkKm, nationalKm, type Road,
+  treatmentOf, TREATMENT_SHORT, TREATMENT_COLOR, surfaceLadder, unsurfacedKm, pavedKm,
+} from "../data/roads";
 import { statusOf, fmtPesoM } from "../data/registry";
 import { useStore } from "../state/store";
 import { PageHeader, Reveal, CornerTicks, conditionMeta } from "../components/ui";
@@ -61,11 +64,12 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
   };
 
   const exportCsv = () => {
-    const head = "road_id,name,barangay,class,surface,condition,length_km,width_m,lanes,aadt,pci,last_inspection,geom_wkt_linestring";
-    const rows = filtered.map((r) =>
-      [r.id, `"${r.name}"`, `"${r.barangay}"`, r.roadClass, r.surface, r.condition, r.lengthKm, r.widthM, r.lanes, r.aadt, r.pci, r.lastInspection,
-        `"LINESTRING(${r.geometry.map(([la, ln]) => `${ln} ${la}`).join(", ")})"`].join(",")
-    );
+    const head = "road_id,name,barangay,class,treatment,treatment_year,surface,condition,length_km,width_m,lanes,aadt,pci,last_inspection,geom_wkt_linestring";
+    const rows = filtered.map((r) => {
+      const t = treatmentOf(r);
+      return [r.id, `"${r.name}"`, `"${r.barangay}"`, r.roadClass, `"${t.treatment}"`, t.year, r.surface, r.condition, r.lengthKm, r.widthM, r.lanes, r.aadt, r.pci, r.lastInspection,
+        `"LINESTRING(${r.geometry.map(([la, ln]) => `${ln} ${la}`).join(", ")})"`].join(",");
+    });
     const blob = new Blob([[head, ...rows].join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -90,8 +94,66 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
       <PageHeader
         sheet="RPIS-INV-02"
         title="Road Inventory"
-        subtitle="Attribute register of CITY roads under OCE jurisdiction, stored in PostGIS (roads_road, SRID 4326). National highways are DPWH-managed and are excluded from the city inventory. Filter the register, inspect pavement indices, and export the selection as CSV with WKT geometry."
+        subtitle="Attribute register of CITY roads under OCE jurisdiction, stored in PostGIS (roads_road, SRID 4326). National highways are DPWH-managed and are excluded from the city inventory. Each segment is accounted by its latest works — road opening, graveling, asphalting or concreting — the key to reading how much road is opened, still earth or gravel, and how much is asphalted or concreted."
       />
+
+      {/* ── pavement ladder — opened vs. surfaced ── */}
+      <Reveal className="mt-6">
+        <div className="relative overflow-hidden rounded-[4px] border-2 border-ink-800 bg-ink-900">
+          <CornerTicks />
+          <div className="bg-graticule absolute inset-0" />
+          <div className="relative p-4 sm:p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-display text-2xl font-bold tracking-wide text-paper-100 uppercase sm:text-[26px]">Pavement Ladder</h2>
+              <p className="font-mono text-[9.5px] tracking-[0.18em] text-paper-300/50 uppercase">road opening → graveling → asphalting → concreting</p>
+            </div>
+
+            {/* cumulative proportion bar */}
+            <div className="mt-4 flex h-4 w-full overflow-hidden rounded-[3px] border border-ink-600">
+              {[
+                { label: "Concreted", km: surfaceLadder.concrete, color: "#1e7a58" },
+                { label: "Asphalted", km: surfaceLadder.asphalt, color: "#12897e" },
+                { label: "Graveled", km: surfaceLadder.gravel, color: "#f0a32b" },
+                { label: "Earth (opened)", km: surfaceLadder.earth, color: "#de5a36" },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="group relative h-full transition-[filter] hover:brightness-125"
+                  style={{ width: `${(s.km / surfaceLadder.opened) * 100}%`, background: s.color }}
+                  title={`${s.label} — ${s.km.toFixed(1)} km`}
+                />
+              ))}
+            </div>
+
+            {/* ladder figures */}
+            <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-[3px] border border-ink-600 bg-ink-700 sm:grid-cols-5">
+              <div className="bg-ink-950/70 px-3.5 py-3 transition-colors hover:bg-ink-950">
+                <p className="font-mono text-[9px] tracking-[0.16em] text-amber-400 uppercase">Opened (total)</p>
+                <p className="font-display mt-1 text-3xl leading-none font-bold text-paper-100">{surfaceLadder.opened.toFixed(1)}<span className="text-[14px] text-paper-300/60"> km</span></p>
+                <p className="mt-1 font-mono text-[9px] text-paper-300/45 uppercase">{surfaceLadder.segments} segments</p>
+              </div>
+              {[
+                { label: "Concreted", km: surfaceLadder.concrete, color: "#4cc08f" },
+                { label: "Asphalted", km: surfaceLadder.asphalt, color: "#35c4b4" },
+                { label: "Graveled", km: surfaceLadder.gravel, color: "#ffc24d" },
+                { label: "Earth / opened only", km: surfaceLadder.earth, color: "#f2855f" },
+              ].map((s) => (
+                <div key={s.label} className="bg-ink-950/70 px-3.5 py-3 transition-colors hover:bg-ink-950">
+                  <p className="flex items-center gap-1.5 font-mono text-[9px] tracking-[0.16em] uppercase" style={{ color: s.color }}>
+                    <i className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />{s.label}
+                  </p>
+                  <p className="font-display mt-1 text-3xl leading-none font-bold text-paper-100">{s.km.toFixed(1)}<span className="text-[14px] text-paper-300/60"> km</span></p>
+                  <p className="mt-1 font-mono text-[9px] text-paper-300/45 uppercase">{((s.km / surfaceLadder.opened) * 100).toFixed(1)}% of opened</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-3.5 font-mono text-[10px] tracking-[0.08em] text-paper-300/60">
+              <b className="text-pine-400">{pavedKm.toFixed(1)} km paved</b> (concrete + asphalt) · <b className="text-coral-400">{unsurfacedKm.toFixed(1)} km unsurfaced</b> (earth + gravel) — the program backlog for asphalting / concreting
+            </p>
+          </div>
+        </div>
+      </Reveal>
 
       {/* toolbar */}
       <Reveal className="mt-6">
@@ -114,7 +176,11 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
             OCE jurisdiction · City roads
           </span>
           <select value={surface} onChange={(e) => setSurface(e.target.value)} className={selects[0]}>
-            {["All", "Concrete", "Asphalt", "Gravel", "Earth"].map((b) => <option key={b}>{b === "All" ? "All surfaces" : b}</option>)}
+            <option value="All">All treatments</option>
+            <option value="Concrete">Concreting</option>
+            <option value="Asphalt">Asphalting</option>
+            <option value="Gravel">Road Graveling</option>
+            <option value="Earth">Road Opening (earth)</option>
           </select>
           <select value={cond} onChange={(e) => setCond(e.target.value)} className={selects[0]}>
             {["All", "Good", "Fair", "Poor"].map((b) => <option key={b}>{b === "All" ? "All conditions" : b}</option>)}
@@ -150,7 +216,7 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
                 <tr className="[&>th]:border-b-2 [&>th]:border-amber-500/70">
                   <Th>Segment / Name</Th>
                   <Th>Barangay</Th>
-                  <Th>Class</Th>
+                  <Th>Treatment</Th>
                   <Th>Surface</Th>
                   <Th k="lengthKm" right>Length (km)</Th>
                   <Th k="widthM" right>Width (m)</Th>
@@ -178,7 +244,16 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
                       </td>
                       <td className="px-3 py-2.5 text-[12px] text-text-600">{r.barangay}</td>
                       <td className="px-3 py-2.5">
-                        <span className="rounded-[3px] border border-ink-800/25 bg-ink-900/[0.06] px-1.5 py-0.5 font-mono text-[9.5px] font-semibold tracking-wider uppercase">{r.roadClass}</span>
+                        {(() => {
+                          const t = treatmentOf(r);
+                          const tc = TREATMENT_COLOR[t.treatment];
+                          return (
+                            <span className="inline-flex items-center gap-1.5 rounded-[3px] px-1.5 py-1 font-mono text-[9.5px] font-bold tracking-wider uppercase" style={{ color: tc, background: `${tc}1a`, boxShadow: `inset 0 0 0 1px ${tc}55` }}>
+                              <i className="h-1.5 w-1.5 rounded-full" style={{ background: tc }} />
+                              {TREATMENT_SHORT[t.treatment]} · {t.year}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2.5 text-[12px] text-text-600">{r.surface}</td>
                       <td className="px-3 py-2.5 text-right font-mono text-[12px] font-semibold text-ink-900 tabular">{r.lengthKm.toFixed(1)}</td>
@@ -237,8 +312,11 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
                     ["LENGTH", `${selected.lengthKm.toFixed(1)} km`],
                     ["WIDTH", `${selected.widthM} m`],
                     ["LANES", `${selected.lanes}`],
+                    ["TREATMENT", treatmentOf(selected).treatment],
+                    ["WORKS YEAR", String(treatmentOf(selected).year)],
                     ["SURFACE", selected.surface],
                     ["AADT", selected.aadt.toLocaleString()],
+                    ["PCI", String(selected.pci)],
                     ["INSPECTED", selected.lastInspection],
                   ].map(([k, v]) => (
                     <div key={k} className="bg-paper-100 px-3 py-2.5">
