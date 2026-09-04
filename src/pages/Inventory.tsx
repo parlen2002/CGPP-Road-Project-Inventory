@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { roads, totalNetworkKm, type Road } from "../data/roads";
+import { cityRoads as roads, cityNetworkKm, nationalKm, type Road } from "../data/roads";
 import { statusOf, fmtPesoM } from "../data/registry";
 import { useStore } from "../state/store";
 import { PageHeader, Reveal, CornerTicks, conditionMeta } from "../components/ui";
@@ -18,7 +18,6 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
   const { records } = useStore();
   const [search, setSearch] = useState(query);
   const [brgy, setBrgy] = useState("All");
-  const [cls, setCls] = useState("All");
   const [surface, setSurface] = useState("All");
   const [cond, setCond] = useState("All");
   const [sortKey, setSortKey] = useState<SortKey>("lengthKm");
@@ -42,7 +41,6 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
     const list = roads.filter((r) =>
       (!q || r.name.toLowerCase().includes(q) || r.barangay.toLowerCase().includes(q) || r.id.toLowerCase().includes(q)) &&
       (brgy === "All" || r.barangay === brgy) &&
-      (cls === "All" || r.roadClass === cls) &&
       (surface === "All" || r.surface === surface) &&
       (cond === "All" || r.condition === cond)
     );
@@ -51,7 +49,7 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
       const c = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
       return c * dir;
     });
-  }, [search, brgy, cls, surface, cond, sortKey, dir]);
+  }, [search, brgy, surface, cond, sortKey, dir]);
 
   const selected = roads.find((r) => r.id === selectedId) ?? null;
   const selectedProjects = selected ? records.filter((p) => p.roadId === selected.id) : [];
@@ -92,7 +90,7 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
       <PageHeader
         sheet="RPIS-INV-02"
         title="Road Inventory"
-        subtitle="Attribute register of inventoried road segments stored in PostGIS (roads_road, SRID 4326). Filter the register, inspect pavement indices, and export the selection as CSV with WKT geometry."
+        subtitle="Attribute register of CITY roads under OCE jurisdiction, stored in PostGIS (roads_road, SRID 4326). National highways are DPWH-managed and are excluded from the city inventory. Filter the register, inspect pavement indices, and export the selection as CSV with WKT geometry."
       />
 
       {/* toolbar */}
@@ -112,17 +110,17 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
           <select value={brgy} onChange={(e) => setBrgy(e.target.value)} className={selects[0]}>
             {barangays.map((b) => <option key={b}>{b}</option>)}
           </select>
-          <select value={cls} onChange={(e) => setCls(e.target.value)} className={selects[0]}>
-            {["All", "National", "Provincial", "City"].map((b) => <option key={b}>{b === "All" ? "All classes" : b}</option>)}
-          </select>
+          <span className="hidden cursor-default items-center gap-1.5 rounded-[3px] border border-pine-600/50 bg-pine-600/10 px-2.5 py-2 font-mono text-[10px] font-bold tracking-wider text-pine-600 uppercase sm:flex">
+            OCE jurisdiction · City roads
+          </span>
           <select value={surface} onChange={(e) => setSurface(e.target.value)} className={selects[0]}>
             {["All", "Concrete", "Asphalt", "Gravel", "Earth"].map((b) => <option key={b}>{b === "All" ? "All surfaces" : b}</option>)}
           </select>
           <select value={cond} onChange={(e) => setCond(e.target.value)} className={selects[0]}>
             {["All", "Good", "Fair", "Poor"].map((b) => <option key={b}>{b === "All" ? "All conditions" : b}</option>)}
           </select>
-          {(search || brgy !== "All" || cls !== "All" || surface !== "All" || cond !== "All") && (
-            <button onClick={() => { setSearch(""); setBrgy("All"); setCls("All"); setSurface("All"); setCond("All"); }}
+          {(search || brgy !== "All" || surface !== "All" || cond !== "All") && (
+            <button onClick={() => { setSearch(""); setBrgy("All"); setSurface("All"); setCond("All"); }}
               className="cursor-pointer rounded-[3px] border border-line-400 px-2.5 py-2 font-mono text-[10px] tracking-wider text-text-600 uppercase hover:border-coral-500 hover:text-coral-500">
               Reset
             </button>
@@ -136,9 +134,10 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
 
       {/* result strip */}
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 font-mono text-[10.5px] tracking-wider text-text-600 uppercase">
-        <span><b className="text-ink-900">{filtered.length}</b> / {roads.length} segments</span>
-        <span><b className="text-ink-900">{filteredKm.toFixed(1)}</b> km selected · {(filteredKm / totalNetworkKm * 100).toFixed(1)}% of network</span>
-        <span className="ml-auto hidden text-text-400 sm:inline">SELECT * FROM roads_road WHERE … · {filtered.length} rows</span>
+        <span><b className="text-ink-900">{filtered.length}</b> / {roads.length} city segments</span>
+        <span><b className="text-ink-900">{filteredKm.toFixed(1)}</b> km selected · {(filteredKm / cityNetworkKm * 100).toFixed(1)}% of city network</span>
+        <span className="rounded-[3px] border border-line-400 px-1.5 py-0.5 text-[9.5px] text-text-400">national roads ({nationalKm} km · DPWH) excluded — reference only</span>
+        <span className="ml-auto hidden text-text-400 sm:inline">SELECT * FROM roads_road WHERE jurisdiction = 'CITY' · {filtered.length} rows</span>
       </div>
 
       {/* table */}

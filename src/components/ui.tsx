@@ -10,9 +10,8 @@ export const conditionMeta: Record<Condition, { color: string; soft: string }> =
 };
 
 export const classMeta: Record<RoadClass, { color: string; weight: number }> = {
-  National: { color: "#e9efe4", weight: 5.5 },
-  Provincial: { color: "#9db8a6", weight: 4 },
   City: { color: "#5f7d6b", weight: 3 },
+  National: { color: "#5a7263", weight: 2 }, // DPWH reference — muted
 };
 
 export const surfaceMeta: Record<Surface, string> = {

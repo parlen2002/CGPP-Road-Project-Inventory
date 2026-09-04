@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { IconMap, IconRoad, IconLayers, IconChart, IconStack } from "./icons";
-import { roads } from "../data/roads";
+import { cityRoads as roads } from "../data/roads";
 
 export type PageId = "overview" | "inventory" | "projects" | "analytics" | "system";
 

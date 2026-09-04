@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { networkByYear, surfaceMix, conditionMix, roads, totalNetworkKm } from "../data/roads";
+import { networkByYear, surfaceMix, conditionMix, cityRoads as roads, cityNetworkKm, nationalRoads, nationalKm } from "../data/roads";
 import { PROJECT_TYPES, TYPE_COLORS, STATUS_META, STATUS_LABELS, statusOf } from "../data/registry";
 import { useStore } from "../state/store";
 import { PageHeader, Reveal, CornerTicks, fmtM } from "../components/ui";
@@ -31,12 +31,11 @@ export default function Analytics() {
   );
 
   const classStats = useMemo(() => {
-    const by = (c: string) => roads.filter((r) => r.roadClass === c);
-    return ["National", "Provincial", "City"].map((c) => {
-      const rs = by(c);
-      const km = rs.reduce((s, r) => s + r.lengthKm, 0);
-      return { cls: c, segments: rs.length, km: +km.toFixed(1), pci: Math.round(rs.reduce((s, r) => s + r.pci, 0) / (rs.length || 1)) };
-    });
+    const cityPci = Math.round(roads.reduce((s, r) => s + r.pci, 0) / (roads.length || 1));
+    return [
+      { cls: "City", tag: "OCE JURISDICTION · INVENTORIED", segments: roads.length, km: cityNetworkKm, pci: cityPci, muted: false },
+      { cls: "National", tag: "DPWH JURISDICTION · REFERENCE ONLY", segments: nationalRoads.length, km: nationalKm, pci: 0, muted: true },
+    ];
   }, []);
 
   const totalM = records.reduce((s, r) => s + r.contractedAmount, 0) / 1e6;
@@ -88,7 +87,7 @@ export default function Analytics() {
           <div className="relative h-full rounded-[4px] border border-line-300 bg-paper-100 p-5">
             <CornerTicks color="border-ink-800/50" />
             <h2 className="font-display mb-1 text-2xl font-bold tracking-wide text-ink-900 uppercase">Surface Mix</h2>
-            <p className="mb-4 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">{totalNetworkKm} km total network</p>
+            <p className="mb-4 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">{cityNetworkKm} km OCE city network · national excluded</p>
             <StackedBar data={surfaceMix} />
             <div className="my-5 h-px bg-line-300" />
             <h2 className="font-display mb-1 text-2xl font-bold tracking-wide text-ink-900 uppercase">Condition Exposure</h2>
@@ -101,26 +100,29 @@ export default function Analytics() {
         <Reveal className="lg:col-span-3" delay={160}>
           <div className="relative flex h-full flex-col rounded-[4px] border-2 border-ink-800 bg-ink-950">
             <CornerTicks />
-            <h2 className="font-display border-b border-ink-700 px-4 py-3 text-xl font-bold tracking-wide text-paper-100 uppercase">By Road Class</h2>
+            <h2 className="font-display border-b border-ink-700 px-4 py-3 text-xl font-bold tracking-wide text-paper-100 uppercase">Network by Jurisdiction</h2>
             <ul className="flex-1 divide-y divide-ink-800">
               {classStats.map((c) => (
-                <li key={c.cls} className="px-4 py-3.5 transition-colors hover:bg-ink-900">
+                <li key={c.cls} className={`px-4 py-3.5 transition-colors ${c.muted ? "opacity-60" : "hover:bg-ink-900"}`}>
                   <div className="flex items-baseline justify-between">
-                    <p className="font-mono text-[10.5px] font-bold tracking-[0.16em] text-amber-400 uppercase">{c.cls}</p>
+                    <p className={`font-mono text-[10.5px] font-bold tracking-[0.16em] uppercase ${c.muted ? "text-paper-300/60" : "text-amber-400"}`}>{c.cls}</p>
                     <p className="font-mono text-[9.5px] text-paper-300/50">{c.segments} seg</p>
                   </div>
+                  <p className="mt-0.5 font-mono text-[8px] tracking-[0.14em] text-paper-300/40 uppercase">{c.tag}</p>
                   <div className="mt-1.5 flex items-baseline justify-between">
                     <p className="font-display text-[26px] leading-none font-bold text-paper-100">{c.km}<span className="text-[13px] text-paper-300/60"> km</span></p>
-                    <p className="font-mono text-[10px] text-paper-300/60">PCI <b className={c.pci >= 70 ? "text-pine-400" : c.pci >= 50 ? "text-amber-400" : "text-coral-400"}>{c.pci}</b></p>
+                    {c.muted
+                      ? <p className="font-mono text-[10px] text-paper-300/50">PCI <b className="text-paper-300/40">n/a · DPWH</b></p>
+                      : <p className="font-mono text-[10px] text-paper-300/60">PCI <b className={c.pci >= 70 ? "text-pine-400" : c.pci >= 50 ? "text-amber-400" : "text-coral-400"}>{c.pci}</b></p>}
                   </div>
                   <div className="mt-2 h-1 overflow-hidden rounded-full bg-ink-700">
-                    <div className="h-full rounded-full bg-amber-500/80" style={{ width: `${(c.km / 214.6) * 100}%` }} />
+                    <div className={`h-full rounded-full ${c.muted ? "bg-paper-300/30" : "bg-amber-500/80"}`} style={{ width: `${(c.km / (cityNetworkKm + nationalKm)) * 100}%` }} />
                   </div>
                 </li>
               ))}
             </ul>
-            <p className="border-t border-ink-700 px-4 py-2.5 font-mono text-[9px] tracking-[0.14em] text-paper-300/40 uppercase">
-              ST_Length(geog::geography)/1000
+            <p className="border-t border-ink-700 px-4 py-2.5 font-mono text-[9px] leading-relaxed tracking-[0.14em] text-paper-300/40 uppercase">
+              ST_Length(geog::geography)/1000 · city rows only feed OCE reporting
             </p>
           </div>
         </Reveal>

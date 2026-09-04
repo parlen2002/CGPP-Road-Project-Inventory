@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import MapView from "../components/MapView";
 import { PageHeader, Reveal, CornerTicks, CountUp, conditionMeta } from "../components/ui";
-import { roads, networkByYear, totalNetworkKm, pavedPct, barangayCount, type Road } from "../data/roads";
+import { cityRoads as roads, networkByYear, cityNetworkKm as totalNetworkKm, pavedPct, barangayCount, type Road } from "../data/roads";
 import {
   statusOf, STATUS_META, STATUS_LABELS, typeShort, fmtPesoM, activityFeed,
   PROJECT_TYPES, TYPE_COLORS, projectPoint,
@@ -75,7 +75,7 @@ export default function Overview({ focus, onLocate, onOpenInventory }: {
       <PageHeader
         sheet="RPIS-GIS-01"
         title="Geospatial Console"
-        subtitle="Live PostGIS view of the city road network and registered road projects — condition-surveyed segments, station-pinned works, and field-captured locations (KML / GPX / geotagged imagery)."
+        subtitle="Live PostGIS view of CITY roads under OCE jurisdiction and registered road projects. Dashed grey alignments are national highways — DPWH-managed, kept for map context only. Stations are pinned from barangay coverage and supporting KML / GPX / geotag evidence."
       />
 
       {/* KPI ledger strip */}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap, useMapEvents, ScaleControl, Tooltip } from "react-leaflet";
 import type { Road } from "../data/roads";
-import { barangayCentroids } from "../data/roads";
+import { barangayCentroids, nationalRoads } from "../data/roads";
 import { statusOf, typeShort, fmtPesoM, projectPoint, barangayLabel } from "../data/registry";
 import { useStore } from "../state/store";
 import { conditionMeta, classMeta, fmtCoord, prefersReduced } from "./ui";
@@ -24,7 +24,7 @@ const BASEMAPS = {
 
 export interface Focus { point: [number, number]; zoom: number; key: number; }
 
-interface Layers { roads: boolean; pins: boolean; barangays: boolean; }
+interface Layers { roads: boolean; national: boolean; pins: boolean; barangays: boolean; }
 
 export default function MapView({ focus, roads, onLocate }: {
   focus?: Focus | null;
@@ -33,7 +33,7 @@ export default function MapView({ focus, roads, onLocate }: {
 }) {
   const { records, contractors } = useStore();
   const [basemap, setBasemap] = useState<"dark" | "light">("dark");
-  const [layers, setLayers] = useState<Layers>({ roads: true, pins: true, barangays: true });
+  const [layers, setLayers] = useState<Layers>({ roads: true, national: true, pins: true, barangays: true });
   const [coord, setCoord] = useState<[number, number] | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const reduced = prefersReduced();
@@ -59,6 +59,19 @@ export default function MapView({ focus, roads, onLocate }: {
 
         {layers.roads && roads.map((r) => (
           <RoadLayer key={r.id} road={r} onSelect={() => onLocate?.(r)} />
+        ))}
+
+        {/* DPWH national roads — muted reference only, never inventoried by OCE */}
+        {layers.national && nationalRoads.map((n) => (
+          <Polyline
+            key={n.id}
+            positions={n.geometry}
+            pathOptions={{ color: "#6d8274", weight: 2, opacity: 0.55, dashArray: "5 6", lineCap: "butt" }}
+          >
+            <Tooltip className="rpis-tip" direction="top" offset={[0, -6]}>
+              DPWH NATIONAL · {n.name} — reference only, not OCE jurisdiction
+            </Tooltip>
+          </Polyline>
         ))}
 
         {layers.pins &&
@@ -196,7 +209,8 @@ export default function MapView({ focus, roads, onLocate }: {
       {/* layer chips */}
       <div className="absolute top-14 left-3 z-[600] flex flex-col gap-1.5">
         {([
-          ["roads", `Road segments · ${roads.length}`],
+          ["roads", `City roads (OCE) · ${roads.length}`],
+          ["national", "National · DPWH ref"],
           ["pins", `Project stations · ${records.length}`],
           ["barangays", "Barangay centroids"],
         ] as [keyof Layers, string][]).map(([k, label]) => (
