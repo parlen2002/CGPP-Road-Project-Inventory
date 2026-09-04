@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap, useMapEvents, ScaleControl, Tooltip } from "react-leaflet";
 import type { Road } from "../data/roads";
-import { barangayCentroids, nationalRoads } from "../data/roads";
+import { barangayCentroids } from "../data/roads";
 import { statusOf, typeShort, fmtPesoM, projectPoint, barangayLabel } from "../data/registry";
 import { useStore } from "../state/store";
 import { conditionMeta, classMeta, fmtCoord, prefersReduced } from "./ui";
@@ -61,18 +61,7 @@ export default function MapView({ focus, roads, onLocate }: {
           <RoadLayer key={r.id} road={r} onSelect={() => onLocate?.(r)} />
         ))}
 
-        {/* DPWH national roads — muted reference only, never inventoried by OCE */}
-        {layers.national && nationalRoads.map((n) => (
-          <Polyline
-            key={n.id}
-            positions={n.geometry}
-            pathOptions={{ color: "#6d8274", weight: 2, opacity: 0.55, dashArray: "5 6", lineCap: "butt" }}
-          >
-            <Tooltip className="rpis-tip" direction="top" offset={[0, -6]}>
-              DPWH NATIONAL · {n.name} — reference only, not OCE jurisdiction
-            </Tooltip>
-          </Polyline>
-        ))}
+
 
         {layers.pins &&
           records.map((p) => {
