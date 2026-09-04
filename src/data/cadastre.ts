@@ -21,6 +21,8 @@ export interface Parcel {
   ownerType: OwnerType;
   barangay: string;
   areaM2: number;
+  /** zonal / assessed value per m² used for ROW acquisition cost — ₱0 for government land */
+  valuePerM2: number;
 }
 
 export interface Centerline {
@@ -40,6 +42,9 @@ export interface AffectedLot {
   totalM2: number;
   affectedM2: number;
   pct: number;
+  valuePerM2: number;
+  /** affectedM2 × valuePerM2 — ₱0 for government land (no acquisition needed) */
+  cost: number;
 }
 
 /* ---------------- deterministic sample cadastre ---------------- */
@@ -73,6 +78,7 @@ function makeParcel(id: string, ring: LatLng[], rnd: () => number, govChance: nu
     ownerType: gov ? "Government" : "Private",
     barangay: nearestBarangay(la, ln, BARANGAY_POINTS as Record<string, LatLng>),
     areaM2: Math.round(polygonAreaM2(ring)),
+    valuePerM2: gov ? 0 : Math.round((3500 + rnd() * 9500) / 100) * 100,
   };
 }
 
@@ -169,21 +175,30 @@ export interface ROWResult {
   rows: AffectedLot[];
   corridorAreaM2: number;
   corridorRing: LatLng[];
+  govM2: number;       // affected government land — no acquisition
+  privM2: number;      // affected private land — subject to ROW acquisition
+  totalCost: number;   // Σ affected private area × zonal value
 }
 
 export function runROWAnalysis(parcels: Parcel[], cl: Centerline): ROWResult {
   const corridorRing = corridorPolygon(cl.line, cl.radiusM);
   const rows: AffectedLot[] = [];
+  let govM2 = 0, privM2 = 0, totalCost = 0;
   for (const p of parcels) {
     const affected = clippedAreaM2(p.ring, cl.line, cl.radiusM);
     if (affected > 0.5) {
+      const affectedM2 = Math.round(affected);
+      const cost = Math.round(affectedM2 * p.valuePerM2);
+      if (p.ownerType === "Government") govM2 += affectedM2;
+      else { privM2 += affectedM2; totalCost += cost; }
       rows.push({
         lotId: p.id, owner: p.owner, ownerType: p.ownerType, barangay: p.barangay,
-        totalM2: p.areaM2, affectedM2: Math.round(affected),
+        totalM2: p.areaM2, affectedM2,
         pct: Math.min(100, Math.round((affected / Math.max(1, p.areaM2)) * 100)),
+        valuePerM2: p.valuePerM2, cost,
       });
     }
   }
   rows.sort((a, b) => b.affectedM2 - a.affectedM2);
-  return { rows, corridorAreaM2: Math.round(areaOf(corridorRing)), corridorRing };
+  return { rows, corridorAreaM2: Math.round(areaOf(corridorRing)), corridorRing, govM2, privM2, totalCost };
 }

@@ -29,9 +29,10 @@ type Tab = "ledger" | "implementors" | "personnel";
 const selectCls =
   "rounded-[3px] border border-line-400 bg-paper-100 px-2.5 py-2 font-mono text-[11px] text-ink-900 cursor-pointer focus:border-amber-600 focus:outline-none";
 
-export default function Projects({ onLocate, onOpenRoad }: {
+export default function Projects({ onLocate, onOpenRoad, onOpenCadastre }: {
   onLocate: (point: [number, number], zoom?: number) => void;
   onOpenRoad: (roadId: string) => void;
+  onOpenCadastre?: () => void;
 }) {
   const { records, contractors, engineers } = useStore();
   const [tab, setTab] = useState<Tab>("ledger");
@@ -456,6 +457,7 @@ export default function Projects({ onLocate, onOpenRoad }: {
         onLocate={onLocate}
         onEdit={(r) => { setOpenId(null); setModal({ kind: "project", editing: r }); }}
         onDelete={(r) => { setOpenId(null); setDel({ kind: "record", id: r.id }); }}
+        onOpenCadastre={onOpenCadastre}
       />
       {modal?.kind === "project" && <ProjectForm onClose={() => setModal(null)} editing={modal.editing} />}
       {modal?.kind === "contractor" && <ContractorForm onClose={() => setModal(null)} editing={modal.editing} />}

@@ -3,29 +3,39 @@ import {
   seedRecords, seedContractors, seedEngineers,
   type ProjectRecord, type Contractor, type Engineer,
 } from "../data/registry";
+import {
+  generateSampleCadastral, seedCenterlines,
+  type Parcel, type Centerline,
+} from "../data/cadastre";
 
 export interface Snapshot {
   records: ProjectRecord[];
   contractors: Contractor[];
   engineers: Engineer[];
+  parcels: Parcel[];         // cadastre (QGIS shapefile basis)
+  centerlines: Centerline[]; // road centerlines (KML / GPX / drawn), linked to records
 }
 
-const KEY = "rpis-store-v3"; // v3 = barangay-based location model; older snapshots are reseeded
+const KEY = "rpis-store-v4"; // v4 = cadastre + centerlines; older snapshots are reseeded
 
 function load(): Snapshot {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Snapshot;
-      // validate the location shape so pre-migration snapshots can never crash the map
+      // validate shape so pre-migration snapshots can never crash the map
       if (
         p && Array.isArray(p.records) && p.records.length &&
         Array.isArray(p.records[0]?.location?.barangays) &&
-        Array.isArray(p.contractors) && Array.isArray(p.engineers)
+        Array.isArray(p.contractors) && Array.isArray(p.engineers) &&
+        Array.isArray(p.parcels) && Array.isArray(p.centerlines)
       ) return p;
     }
   } catch { /* corrupted storage → fall back to seed */ }
-  return { records: seedRecords, contractors: seedContractors, engineers: seedEngineers };
+  return {
+    records: seedRecords, contractors: seedContractors, engineers: seedEngineers,
+    parcels: generateSampleCadastral(), centerlines: seedCenterlines,
+  };
 }
 
 let snapshot: Snapshot = load();
@@ -108,6 +118,35 @@ export function deleteEngineer(id: string): number {
     records: snapshot.records.map((r) => (r.inchargeId === id ? { ...r, inchargeId: "" } : r)),
   });
   return linked;
+}
+
+/* ---------------- cadastre + centerlines ---------------- */
+
+export function setParcels(parcels: Parcel[]) {
+  mutate({ ...snapshot, parcels });
+}
+
+export function resetCadastre() {
+  mutate({ ...snapshot, parcels: generateSampleCadastral() });
+}
+
+export function addCenterline(cl: Omit<Centerline, "id">): string {
+  const id = nextId("CL", snapshot.centerlines.map((x) => x.id));
+  mutate({ ...snapshot, centerlines: [...snapshot.centerlines, { ...cl, id }] });
+  return id;
+}
+
+export function updateCenterline(id: string, patch: Partial<Omit<Centerline, "id">>) {
+  mutate({ ...snapshot, centerlines: snapshot.centerlines.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+}
+
+export function deleteCenterline(id: string) {
+  mutate({ ...snapshot, centerlines: snapshot.centerlines.filter((c) => c.id !== id) });
+}
+
+/** Replace the whole centerline collection (used by functional updaters). */
+export function setCenterlinesAll(centerlines: Centerline[]) {
+  mutate({ ...snapshot, centerlines });
 }
 
 export function nextId(prefix: string, existing: string[]): string {

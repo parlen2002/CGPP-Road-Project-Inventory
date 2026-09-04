@@ -160,22 +160,40 @@ const xyArea = (p: XY[]) => {
 };
 
 /**
- * Area of `lotRing` falling inside the corridor.
- * Per-segment convex clips are summed — the browser preview of
- * ST_Intersection(lot, corridor); overlap at mitre joins is < 2 %
- * for planning-level ROW estimates.
+ * Pieces of `lotRing` falling inside the corridor, as WGS 84 rings —
+ * the browser preview of ST_Intersection(lot, corridor). Overlap at
+ * mitre joins is < 2 % for planning-level ROW estimates.
  */
-export function clippedAreaM2(lotRing: LatLng[], line: LatLng[], radiusM: number): number {
+export function clipLotRings(lotRing: LatLng[], line: LatLng[], radiusM: number): LatLng[][] {
   const lat0 = refLatOf(line);           // shared meter frame for lot + corridor
   const lotXY = toXY(lotRing, lat0);
   const quads = corridorSegmentQuads(line, radiusM);
-  let total = 0;
+  const rings: LatLng[][] = [];
   for (const q of quads) {
     const c = clipConvex(lotXY, q);
-    if (c) total += xyArea(c);
+    if (c) rings.push(toLatLng(c, lat0));
   }
-  return total;
+  return rings;
 }
+
+/** Area of `lotRing` falling inside the corridor (m²). */
+export function clippedAreaM2(lotRing: LatLng[], line: LatLng[], radiusM: number): number {
+  const lat0 = refLatOf(line);
+  return clipLotRings(lotRing, line, radiusM).reduce((s, r) => s + xyArea(toXY(r, lat0)), 0);
+}
+
+/** rough bbox of a lat/lng list, padded by `deg` — used to limit map renders */
+export function bboxOf(pts: LatLng[], pad = 0): [number, number, number, number] {
+  let la1 = Infinity, la2 = -Infinity, ln1 = Infinity, ln2 = -Infinity;
+  for (const [la, ln] of pts) {
+    la1 = Math.min(la1, la); la2 = Math.max(la2, la);
+    ln1 = Math.min(ln1, ln); ln2 = Math.max(ln2, ln);
+  }
+  return [la1 - pad, ln1 - pad, la2 + pad, ln2 + pad];
+}
+
+export const inBBox = (p: LatLng, b: [number, number, number, number]) =>
+  p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3];
 
 /* ---------- barangay assignment (spatial join preview) ---------- */
 

@@ -8,7 +8,9 @@ import {
   type Parcel, type Centerline, type AffectedLot,
 } from "../data/cadastre";
 import { BARANGAY_POINTS } from "../data/roads";
-import { useStore } from "../state/store";
+import {
+  useStore, setParcels as storeSetParcels, setCenterlinesAll,
+} from "../state/store";
 import { PageHeader, Reveal, CornerTicks, CountUp } from "../components/ui";
 import { toast } from "../components/toast";
 import ConfirmDialog from "../components/confirm";
@@ -20,21 +22,6 @@ const BASEMAPS = {
 };
 
 const CITY: [number, number] = [9.7405, 118.7372];
-
-/* ---------- persistent state ---------- */
-function usePersistent<T>(key: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [v, setV] = useState<T>(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) return JSON.parse(raw) as T;
-    } catch { /* reseed */ }
-    return initial;
-  });
-  useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* quota */ }
-  }, [key, v]);
-  return [v, setV];
-}
 
 /* ---------- map internals ---------- */
 function FitBounds({ points }: { points: LatLng[] }) {
@@ -67,9 +54,11 @@ function DrawEvents({ active, onPoint, onCursor }: {
 type Tab = "cadastre" | "centerlines" | "affected";
 
 export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, number], zoom?: number) => void }) {
-  const { records } = useStore();
-  const [parcels, setParcels] = usePersistent<Parcel[] | null>("rpis-cadastre-v1", null);
-  const [centerlines, setCenterlines] = usePersistent<Centerline[]>("rpis-centerlines-v1", seedCenterlines);
+  const { records, parcels: parcelsAll, centerlines } = useStore();
+  /* shims — map the old local-state API onto the shared store */
+  const parcels = parcelsAll;
+  const setParcels = (v: Parcel[] | null) => storeSetParcels(v ?? []);
+  const setCenterlines = (updater: (prev: Centerline[]) => Centerline[]) => setCenterlinesAll(updater(centerlines));
   const [tab, setTab] = useState<Tab>("cadastre");
   const [selCL, setSelCL] = useState<string>(seedCenterlines[0]?.id ?? "");
   const [editing, setEditing] = useState<string | null>(null);
@@ -131,7 +120,9 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
           const d = (pt[0] - la) ** 2 + (pt[1] - ln) ** 2;
           if (d < bd) { bd = d; brgy = name; }
         }
-        return { id, ring: l.ring, owner: owner === "—" ? `Owner of ${id}` : owner, ownerType: gov ? "Government" as const : "Private" as const, barangay: brgy, areaM2: Math.round(polygonAreaM2(l.ring)) };
+        const rawVal = l.props.ZONAL_VAL ?? l.props.zonal_val ?? l.props.MV ?? l.props.mv ?? l.props.VALUE ?? l.props.value;
+        const valuePerM2 = gov ? 0 : (typeof rawVal === "number" && isFinite(rawVal) && rawVal > 0 ? Math.round(rawVal) : 5000);
+        return { id, ring: l.ring, owner: owner === "—" ? `Owner of ${id}` : owner, ownerType: gov ? "Government" as const : "Private" as const, barangay: brgy, areaM2: Math.round(polygonAreaM2(l.ring)), valuePerM2 };
       });
       setParcels(next);
       setFitKey((k) => k + 1);
@@ -208,6 +199,7 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
       pvtN: pvt.length, pvtA: pvt.reduce((s, r) => s + r.affectedM2, 0),
       govN: gov.length, govA: gov.reduce((s, r) => s + r.affectedM2, 0),
       totalA: analysis.rows.reduce((s, r) => s + r.affectedM2, 0),
+      cost: analysis.rows.reduce((s, r) => s + r.cost, 0),
     };
   }, [analysis]);
 
@@ -543,6 +535,16 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
                     </button>
                   </div>
                   {agg && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[3px] border-2 border-coral-500/60 bg-coral-500/[0.07] px-3.5 py-2.5">
+                      <p className="font-mono text-[9px] font-bold tracking-[0.16em] text-coral-600 uppercase">
+                        Estimated ROW acquisition cost · private lots only
+                      </p>
+                      <p className="font-display text-[26px] leading-none font-bold text-coral-600 tabular">
+                        ₱{agg.cost.toLocaleString("en-PH")}
+                      </p>
+                    </div>
+                  )}
+                  {agg && (
                     <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-[3px] border border-line-400 bg-line-300">
                       <div className="bg-ink-900 px-3 py-3">
                         <p className="font-mono text-[8.5px] tracking-[0.14em] text-paper-300/50 uppercase">Lots affected</p>
@@ -572,6 +574,8 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
                           <th className="text-left">Type</th>
                           <th className="text-right">Affected</th>
                           <th className="text-right">%</th>
+                          <th className="text-right">₱ / m²</th>
+                          <th className="text-right">ROW Cost</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-line-300">
@@ -595,10 +599,18 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
                                 <span className="w-8 text-right font-mono text-[10px] font-bold text-ink-900 tabular">{r.pct}%</span>
                               </span>
                             </td>
+                            <td className="px-2.5 py-2 text-right font-mono text-[10.5px] text-text-600 tabular">
+                              {r.ownerType === "Government" ? <span className="text-pine-600">public</span> : `₱${r.valuePerM2.toLocaleString()}`}
+                            </td>
+                            <td className="px-2.5 py-2 text-right font-mono text-[11px] font-bold tabular">
+                              {r.cost === 0
+                                ? <span className="font-semibold text-pine-600">₱0 · no acquisition</span>
+                                : <span className="text-coral-600">₱{(r.cost / 1e6).toFixed(2)}M</span>}
+                            </td>
                           </tr>
                         ))}
                         {analysis!.rows.length === 0 && (
-                          <tr><td colSpan={4} className="px-3 py-6 text-center font-mono text-[10.5px] text-text-400">No lots intersect this corridor.</td></tr>
+                          <tr><td colSpan={6} className="px-3 py-6 text-center font-mono text-[10.5px] text-text-400">No lots intersect this corridor.</td></tr>
                         )}
                       </tbody>
                     </table>

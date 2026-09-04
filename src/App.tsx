@@ -109,6 +109,8 @@ export default function App() {
     setPage("inventory");
   }, []);
 
+  const openCadastre = useCallback(() => setPage("cadastre"), []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-paper-200">
       <Sidebar page={page} onNavigate={navigate} />
@@ -120,7 +122,7 @@ export default function App() {
           {page === "inventory" && (
             <Inventory query={invQuery} selectedId={invSelected} onSelect={setInvSelected} onLocate={locateRoad} />
           )}
-          {page === "projects" && <Projects onLocate={locate} onOpenRoad={openInventory} />}
+          {page === "projects" && <Projects onLocate={locate} onOpenRoad={openInventory} onOpenCadastre={openCadastre} />}
           {page === "cadastre" && <LotAnalysis onLocate={locate} />}
           {page === "analytics" && <Analytics />}
           {page === "system" && <System />}

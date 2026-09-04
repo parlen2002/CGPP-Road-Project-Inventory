@@ -380,7 +380,7 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
                   className="h-3.5 w-3.5 cursor-pointer accent-pine-600"
                 />
                 <span className="flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.14em] text-ink-900 uppercase">
-                  <IconCamera size={13} className="text-teal-500" /> Attach supporting evidence (KML / GPX / geotag)
+                  <IconCamera size={13} className="text-teal-500" /> Attach field evidence (geotag pin · KML / GPX centerline)
                 </span>
               </label>
               {ev.on ? (
@@ -416,13 +416,17 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
                       ⌖ Use barangay centroid{barangays.length > 1 ? "s (avg)" : ""}
                     </button>
                     <p className="font-mono text-[9px] text-text-400">
-                      {evComplete ? "✓ evidence will pinpoint the project on the map" : "incomplete evidence is ignored — pin falls on the barangay centroid"}
+                      {ev.source === "Geotagged Image"
+                        ? (evComplete ? "✓ geotag pinpoints the exact project station on the map" : "incomplete geotag is ignored — pin falls on the barangay centroid")
+                        : "KML / GPX become the road centerline — import it in Lot & ROW Analysis and link it to this record to compute lot impacts"}
                     </p>
                   </div>
                 </div>
               ) : (
                 <p className="mt-2 font-mono text-[9.5px] leading-relaxed text-text-400">
-                  No evidence attached — the project pin falls on the selected barangay centroid{barangays.length > 1 ? "s (averaged)" : ""}. Evidence is only supporting: it pinpoints the project accurately when available.
+                  No evidence attached — the project pin falls on the selected barangay centroid{barangays.length > 1 ? "s (averaged)" : ""}.
+                  A <b className="text-text-600">geotagged image</b> pinpoints the exact station; an imported <b className="text-text-600">KML / GPX</b> becomes the road
+                  centerline used for lot-overlap and ROW cost analysis.
                 </p>
               )}
             </div>

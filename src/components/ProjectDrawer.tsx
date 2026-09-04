@@ -5,6 +5,7 @@ import {
 import { useStore, setPercent, setActualDates } from "../state/store";
 import { CornerTicks } from "./ui";
 import { IconClose, IconPin, IconArrow, IconCamera, IconUser, IconCalendar, IconEdit, IconTrash } from "./icons";
+import ROWImpact from "./ROWImpact";
 
 function KV({ k, v, mono = true }: { k: string; v: React.ReactNode; mono?: boolean }) {
   return (
@@ -15,12 +16,13 @@ function KV({ k, v, mono = true }: { k: string; v: React.ReactNode; mono?: boole
   );
 }
 
-export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDelete }: {
+export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDelete, onOpenCadastre }: {
   record: ProjectRecord | null;
   onClose: () => void;
   onLocate: (point: [number, number], zoom?: number) => void;
   onEdit?: (r: ProjectRecord) => void;
   onDelete?: (r: ProjectRecord) => void;
+  onOpenCadastre?: () => void;
 }) {
   const { contractors, engineers } = useStore();
   const impl = record ? contractors.find((c) => c.id === record.implementorId) : undefined;
@@ -266,6 +268,9 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
               </button>
             </div>
           </div>
+
+          {/* lot overlap + ROW impact */}
+          <ROWImpact record={record} onOpenCadastre={onOpenCadastre} />
 
           {/* notes */}
           <div className="mt-4 rounded-[3px] border border-line-300 bg-amber-500/[0.07] p-4">
