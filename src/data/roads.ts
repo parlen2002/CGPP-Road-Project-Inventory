@@ -140,6 +140,42 @@ export const barangayCentroids: { name: string; point: [number, number] }[] = [
   { name: "San Rafael", point: [9.7835, 118.7700] },
 ];
 
+/* ---------------- barangay gazetteer (project location encoder) ----------------
+   Primary location key of every project record. A project is encoded against one
+   or more barangays depending on its extent; KML / GPX / geotagged captures are
+   only attached as supporting evidence to pinpoint the exact station on the map. */
+
+export const BARANGAY_LIST: string[] = [
+  "Bacungan", "Bancao-Bancao", "Irawan", "Iwahig", "Liwanag",
+  "Mandaragat", "Manalo", "Marungko", "Montible", "Salvacion",
+  "San Jose", "San Manuel", "San Pedro (Poblacion)", "San Rafael",
+  "Santa Cruz", "Santa Lourdes", "Santa Monica", "Sicsican",
+  "Tagumpay", "Tiniguiban",
+];
+
+export const BARANGAY_POINTS: Record<string, [number, number]> = {
+  "Bacungan": [9.7690, 118.7490],
+  "Bancao-Bancao": [9.7210, 118.7415],
+  "Irawan": [9.7160, 118.7420],
+  "Iwahig": [9.7095, 118.7290],
+  "Liwanag": [9.7385, 118.7310],
+  "Mandaragat": [9.7455, 118.7495],
+  "Manalo": [9.7455, 118.7545],
+  "Marungko": [9.7290, 118.7360],
+  "Montible": [9.7310, 118.7300],
+  "Salvacion": [9.7600, 118.7490],
+  "San Jose": [9.7320, 118.7420],
+  "San Manuel": [9.7535, 118.7265],
+  "San Pedro (Poblacion)": [9.7360, 118.7390],
+  "San Rafael": [9.7835, 118.7700],
+  "Santa Cruz": [9.7445, 118.7415],
+  "Santa Lourdes": [9.7430, 118.7300],
+  "Santa Monica": [9.7285, 118.7545],
+  "Sicsican": [9.7955, 118.7805],
+  "Tagumpay": [9.7395, 118.7535],
+  "Tiniguiban": [9.7565, 118.7335],
+};
+
 export const totalNetworkKm = 214.6; // full city-maintained network
 export const pavedPct = 71.4;
 export const barangayCount = 66;

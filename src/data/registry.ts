@@ -2,8 +2,14 @@
    RPIS DATA REGISTRY — Office of the City Engineer, Puerto Princesa
    project_records ⟶ FK implementor (contractors)
                  ⟶ FK project_incharge (engineers)
-   Location is derived from field captures: KML / GPX / geotagged photos
-────────────────────────────────────────────────────────────── */
+   LOCATION IS BARANGAY-BASED:
+     · primary key of location = one or more barangays covered,
+       depending on the vastness of the project
+     · KML / GPX / geotagged images are SUPPORTING EVIDENCE only —
+       they pinpoint the project accurately on the map when attached
+ ────────────────────────────────────────────────────────────── */
+
+import { BARANGAY_POINTS } from "./roads";
 
 export type ProjectType =
   | "Concreting" | "Site Development" | "Drainage System" | "Slope Protection"
@@ -11,6 +17,18 @@ export type ProjectType =
 
 export type ModeOfImplementation = "By Contract" | "By Administration";
 export type LocationSource = "KML" | "GPX" | "Geotagged Image";
+
+export interface LocationEvidence {
+  source: LocationSource;            // supporting evidence format
+  ref: string;                       // filename / capture reference
+  lat: number;                       // exact station, WGS 84
+  lng: number;
+}
+
+export interface ProjectLocation {
+  barangays: string[];               // PRIMARY — one or more barangays covered
+  evidence: LocationEvidence | null; // OPTIONAL — pinpoints the project on the map
+}
 
 export interface ProjectRecord {
   id: string;                      // Project ID — RPIS-YYYY-NNN
@@ -22,7 +40,7 @@ export interface ProjectRecord {
   folderNo: string;                // File folder number
   implementorId: string;           // FK → contractors
   inchargeId: string;              // FK → engineers
-  location: { lat: number; lng: number; source: LocationSource; ref: string };
+  location: ProjectLocation;       // barangay-based; evidence optional
   linearLength: number;            // meters
   contractedAmount: number;        // PHP
   actualAmount: number;            // PHP
@@ -127,6 +145,35 @@ export function durationOf(r: ProjectRecord): string {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+/* ---------------- location helpers ---------------- */
+
+/** True when KML / GPX / geotag evidence pinpoints the project. */
+export const hasEvidence = (r: ProjectRecord) => r.location.evidence !== null;
+
+/**
+ * Map point for the record:
+ *  · with evidence → exact station from the attached KML / GPX / geotag
+ *  · without      → centroid of the covered barangay(ies), averaged when multiple
+ */
+export function projectPoint(r: ProjectRecord): [number, number] {
+  const ev = r.location.evidence;
+  if (ev) return [ev.lat, ev.lng];
+  const pts = r.location.barangays
+    .map((b) => BARANGAY_POINTS[b])
+    .filter((p): p is [number, number] => Array.isArray(p));
+  if (!pts.length) return [9.7389, 118.739];
+  return [
+    pts.reduce((s, p) => s + p[0], 0) / pts.length,
+    pts.reduce((s, p) => s + p[1], 0) / pts.length,
+  ];
+}
+
+/** Compact label: "Brgy. X" or "Brgy. X +2" for multi-barangay coverage. */
+export function barangayLabel(r: ProjectRecord): string {
+  const [first, ...rest] = r.location.barangays;
+  return `Brgy. ${first ?? "—"}${rest.length ? ` +${rest.length}` : ""}`;
+}
+
 /* ---------------- status derivation (slider-driven) ---------------- */
 
 export type StatusLabel = "Not Started" | "Ongoing" | "Delayed" | "Completed";
@@ -169,32 +216,34 @@ export const seedEngineers: Engineer[] = [
   { id: "ENG-006", name: "Engr. Katrina D. Salcedo", position: "Planning & Design Chief", unit: "Planning & Design Unit", prc: "0127650", email: "planning@oce.puertoprincesa.gov.ph", phone: "0915 902 6684" },
 ];
 
-/* ---------------- seed project records ---------------- */
+/* ---------------- seed project records ----------------
+   location.barangays = primary coverage (multi-select for vast projects)
+   location.evidence  = supporting KML / GPX / geotag fix, when captured */
 
 export const seedRecords: ProjectRecord[] = [
-  { id: "RPIS-2025-014", name: "Rizal Avenue Sidewalk & Drainage Improvement", type: "Sidewalk", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-06-03-01-01-00-04", folderNo: "OCE-IF-2025-014", implementorId: "CTR-002", inchargeId: "ENG-004", location: { lat: 9.7415, lng: 118.7383, source: "KML", ref: "Rizal_Ave_sidewalk_rev2.kml" }, linearLength: 1240, contractedAmount: 24_800_000, actualAmount: 15_376_000, bidYear: 2025, contractedStart: "2025-03-10", contractedCompletion: "2026-02-28", actualStart: "2025-03-24", actualCompletion: null, percent: 62, roadId: "rd-rizal", notes: "Segment B (St. 0+640 – 1+240) pending PPC-ELCO utility relocation; revised completion target under review by Planning & Design." },
-  { id: "RPIS-2025-021", name: "Circumferential Road East Street Lighting", type: "Street Lights", mode: "By Contract", fund: "DPWH Convergence Program", objectCode: "1-06-05-01-99-00-01", folderNo: "OCE-IF-2025-021", implementorId: "CTR-006", inchargeId: "ENG-006", location: { lat: 9.7362, lng: 118.7572, source: "GPX", ref: "circum_east_lighting.gpx" }, linearLength: 3800, contractedAmount: 18_600_000, actualAmount: 2_232_000, bidYear: 2025, contractedStart: "2025-06-01", contractedCompletion: "2026-03-31", actualStart: "2025-06-20", actualCompletion: null, percent: 12, roadId: "rd-circum", notes: "Poles 1–22 of 228 energized. Metering application with PPC-ELCO pending; pole setting paused at Tagumpay junction." },
-  { id: "RPIS-2024-036", name: "North Road Concreting — Brgy. Bacungan (Seg. 3)", type: "Concreting", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-IF-2024-036", implementorId: "CTR-003", inchargeId: "ENG-003", location: { lat: 9.7668, lng: 118.7592, source: "GPX", ref: "north_rd_seg3_2025-11.gpx" }, linearLength: 2860, contractedAmount: 86_400_000, actualAmount: 67_392_000, bidYear: 2024, contractedStart: "2024-11-02", contractedCompletion: "2025-12-20", actualStart: "2024-11-18", actualCompletion: null, percent: 78, roadId: "rd-north", notes: "Concrete pour St. 2+340 – 2+860 verified by materials engineer; 28-day core samples passed. Catch-up plan submitted for rain delays." },
-  { id: "RPIS-2025-008", name: "South Road Drainage System (Iwahig–Irigang)", type: "Drainage System", mode: "By Contract", fund: "NDRRMF + LGU Counterpart", objectCode: "1-06-03-01-04-00-00", folderNo: "OCE-IF-2025-008", implementorId: "CTR-004", inchargeId: "ENG-002", location: { lat: 9.7188, lng: 118.7252, source: "Geotagged Image", ref: "IMG_20251004_141233.jpg" }, linearLength: 1650, contractedAmount: 32_700_000, actualAmount: 13_407_000, bidYear: 2024, contractedStart: "2025-02-01", contractedCompletion: "2025-10-15", actualStart: "2025-02-19", actualCompletion: null, percent: 41, roadId: "rd-south", notes: "Slipped 128 days on ROW dispute at St. 1+100; suspension lifted 2025-12-01. Contractor required to submit revised catch-up program." },
-  { id: "RPIS-2024-047", name: "Lacao Street Drainage Line", type: "Drainage System", mode: "By Contract", fund: "General Fund", objectCode: "1-06-03-01-04-00-00", folderNo: "OCE-IF-2024-047", implementorId: "CTR-005", inchargeId: "ENG-004", location: { lat: 9.7392, lng: 118.7366, source: "KML", ref: "lacao_drainage_asbuilt.kml" }, linearLength: 940, contractedAmount: 6_900_000, actualAmount: 6_842_500, bidYear: 2024, contractedStart: "2024-10-01", contractedCompletion: "2025-02-14", actualStart: "2024-10-08", actualCompletion: "2025-02-10", percent: 100, roadId: "rd-lacao", notes: "As-built survey approved by P&D; final payment processed March 2025. Warranty runs to Feb 2026." },
-  { id: "RPIS-2025-017", name: "Mandaragat Road Concreting (Seg. 1)", type: "Concreting", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-IF-2025-017", implementorId: "CTR-003", inchargeId: "ENG-003", location: { lat: 9.7468, lng: 118.7515, source: "GPX", ref: "mandaragat_seg1.gpx" }, linearLength: 1980, contractedAmount: 27_500_000, actualAmount: 15_125_000, bidYear: 2025, contractedStart: "2025-04-22", contractedCompletion: "2026-04-22", actualStart: "2025-05-06", actualCompletion: null, percent: 55, roadId: "rd-mandaragat", notes: "Sub-base 100%, paving 41%. Rainy-season slippage absorbed by contract float; no extension of time filed." },
-  { id: "RPIS-2026-002", name: "Tiniguiban Road Shoulder Widening", type: "Road Shoulder", mode: "By Contract", fund: "FY Annual Plan", objectCode: "1-06-03-01-01-00-03", folderNo: "OCE-IF-2026-002", implementorId: "CTR-003", inchargeId: "ENG-006", location: { lat: 9.7542, lng: 118.7338, source: "KML", ref: "tiniguiban_shoulder.kml" }, linearLength: 2400, contractedAmount: 18_200_000, actualAmount: 0, bidYear: 2026, contractedStart: "2026-05-04", contractedCompletion: "2026-12-15", actualStart: null, actualCompletion: null, percent: 0, roadId: "rd-tiniguiban", notes: "Notice to Proceed pending; contractor mobilization scheduled May 2026. Shoulder width 1.5 m both sides, gravel-informed base." },
-  { id: "RPIS-2026-005", name: "Libis Coastal Road Shoulder & Guardrail", type: "Road Shoulder", mode: "By Contract", fund: "FY Annual Plan", objectCode: "1-06-03-01-01-00-03", folderNo: "OCE-IF-2026-005", implementorId: "CTR-007", inchargeId: "ENG-002", location: { lat: 9.7212, lng: 118.7401, source: "KML", ref: "libis_coastal_rev1.kml" }, linearLength: 3150, contractedAmount: 38_900_000, actualAmount: 0, bidYear: 2026, contractedStart: "2026-04-01", contractedCompletion: "2027-03-30", actualStart: null, actualCompletion: null, percent: 0, roadId: "rd-libis", notes: "Bid opening 18 Mar 2026, 10:00 at BAC Conference Room. Three contractors pre-qualified; includes 890 m steel guardrail." },
-  { id: "RPIS-2026-007", name: "Iwahig Slope Protection Works", type: "Slope Protection", mode: "By Contract", fund: "DPWH Convergence Program", objectCode: "1-06-03-01-02-00-00", folderNo: "OCE-IF-2026-007", implementorId: "CTR-004", inchargeId: "ENG-005", location: { lat: 9.7132, lng: 118.7235, source: "Geotagged Image", ref: "IMG_20260115_093012.jpg" }, linearLength: 620, contractedAmount: 52_000_000, actualAmount: 0, bidYear: 2026, contractedStart: "2026-06-01", contractedCompletion: "2027-08-15", actualStart: null, actualCompletion: null, percent: 0, roadId: "rd-iwahig", notes: "Pre-qualification underway. Geotechnical boring completed (3 boreholes, 15 m depth); gabion + ripraps design under review." },
-  { id: "RPIS-2025-041", name: "San Manuel Road Concreting (Force Account)", type: "Concreting", mode: "By Administration", fund: "20% Development Fund", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-FA-2025-041", implementorId: "CTR-001", inchargeId: "ENG-004", location: { lat: 9.7501, lng: 118.7282, source: "GPX", ref: "san_manuel_forces.gpx" }, linearLength: 1450, contractedAmount: 16_400_000, actualAmount: 6_724_000, bidYear: 2025, contractedStart: "2025-11-20", contractedCompletion: "2026-10-30", actualStart: "2026-01-12", actualCompletion: null, percent: 41, roadId: "rd-sanman", notes: "Force-account execution using LGU batching plant. Materials procurement on schedule; labor force at 22 personnel." },
-  { id: "RPIS-2024-052", name: "Burgos Street LED Street Lighting", type: "Street Lights", mode: "By Contract", fund: "General Fund", objectCode: "1-06-05-01-99-00-01", folderNo: "OCE-IF-2024-052", implementorId: "CTR-006", inchargeId: "ENG-006", location: { lat: 9.7352, lng: 118.7385, source: "KML", ref: "burgos_lighting_asbuilt.kml" }, linearLength: 860, contractedAmount: 9_600_000, actualAmount: 9_512_300, bidYear: 2024, contractedStart: "2024-07-15", contractedCompletion: "2024-12-10", actualStart: "2024-07-22", actualCompletion: "2024-12-02", percent: 100, roadId: "rd-burgos", notes: "64 LED fixtures energized; turnover accepted December 2024. Includes dusk-to-dawn photocell controllers." },
-  { id: "RPIS-2024-029", name: "Valencia Street Sidewalk Construction", type: "Sidewalk", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-06-03-01-01-00-04", folderNo: "OCE-IF-2024-029", implementorId: "CTR-002", inchargeId: "ENG-004", location: { lat: 9.7331, lng: 118.7356, source: "KML", ref: "valencia_sidewalk_asbuilt.kml" }, linearLength: 720, contractedAmount: 14_800_000, actualAmount: 14_655_000, bidYear: 2024, contractedStart: "2024-09-12", contractedCompletion: "2025-03-18", actualStart: "2024-09-28", actualCompletion: "2025-03-11", percent: 100, roadId: "rd-valencia", notes: "Interlocking blocks with ramps per BP 344 accessibility standards. Warranty period to September 2026." },
-  { id: "RPIS-2025-033", name: "City Motorpool Site Development", type: "Site Development", mode: "By Contract", fund: "General Fund", objectCode: "1-07-01-01-01-00-00", folderNo: "OCE-IF-2025-033", implementorId: "CTR-004", inchargeId: "ENG-003", location: { lat: 9.7455, lng: 118.7312, source: "Geotagged Image", ref: "IMG_20251208_110245.jpg" }, linearLength: 640, contractedAmount: 22_100_000, actualAmount: 7_514_000, bidYear: 2025, contractedStart: "2025-10-08", contractedCompletion: "2026-09-30", actualStart: "2025-10-24", actualCompletion: null, percent: 34, roadId: undefined, notes: "Cut-and-fill 68% complete; perimeter fence footings ongoing. Linear length recorded as site perimeter per P&D convention." },
-  { id: "RPIS-2025-036", name: "Bacungan Interior Road Concreting (Force Account)", type: "Concreting", mode: "By Administration", fund: "Calamity Fund (LDRRMF)", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-FA-2025-036", implementorId: "CTR-001", inchargeId: "ENG-003", location: { lat: 9.7712, lng: 118.7541, source: "GPX", ref: "bacungan_interior_forces.gpx" }, linearLength: 1150, contractedAmount: 11_200_000, actualAmount: 4_592_000, bidYear: 2025, contractedStart: "2025-09-01", contractedCompletion: "2026-06-30", actualStart: "2025-09-14", actualCompletion: null, percent: 41, roadId: undefined, notes: "Post-typhoon restoration under force account with DPWH-assigned equipment. Aggregates hauled from city quarry." },
+  { id: "RPIS-2025-014", name: "Rizal Avenue Sidewalk & Drainage Improvement", type: "Sidewalk", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-06-03-01-01-00-04", folderNo: "OCE-IF-2025-014", implementorId: "CTR-002", inchargeId: "ENG-004", location: { barangays: ["San Pedro (Poblacion)"], evidence: { source: "KML", ref: "Rizal_Ave_sidewalk_rev2.kml", lat: 9.7415, lng: 118.7383 } }, linearLength: 1240, contractedAmount: 24_800_000, actualAmount: 15_376_000, bidYear: 2025, contractedStart: "2025-03-10", contractedCompletion: "2026-02-28", actualStart: "2025-03-24", actualCompletion: null, percent: 62, roadId: "rd-rizal", notes: "Segment B (St. 0+640 – 1+240) pending PPC-ELCO utility relocation; revised completion target under review by Planning & Design." },
+  { id: "RPIS-2025-021", name: "Circumferential Road East Street Lighting", type: "Street Lights", mode: "By Contract", fund: "DPWH Convergence Program", objectCode: "1-06-05-01-99-00-01", folderNo: "OCE-IF-2025-021", implementorId: "CTR-006", inchargeId: "ENG-006", location: { barangays: ["Tagumpay", "Santa Monica", "Bancao-Bancao"], evidence: { source: "GPX", ref: "circum_east_lighting.gpx", lat: 9.7362, lng: 118.7572 } }, linearLength: 3800, contractedAmount: 18_600_000, actualAmount: 2_232_000, bidYear: 2025, contractedStart: "2025-06-01", contractedCompletion: "2026-03-31", actualStart: "2025-06-20", actualCompletion: null, percent: 12, roadId: "rd-circum", notes: "Poles 1–22 of 228 energized. Metering application with PPC-ELCO pending; pole setting paused at Tagumpay junction." },
+  { id: "RPIS-2024-036", name: "North Road Concreting — Brgy. Bacungan (Seg. 3)", type: "Concreting", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-IF-2024-036", implementorId: "CTR-003", inchargeId: "ENG-003", location: { barangays: ["San Rafael", "Bacungan"], evidence: { source: "GPX", ref: "north_rd_seg3_2025-11.gpx", lat: 9.7668, lng: 118.7592 } }, linearLength: 2860, contractedAmount: 86_400_000, actualAmount: 67_392_000, bidYear: 2024, contractedStart: "2024-11-02", contractedCompletion: "2025-12-20", actualStart: "2024-11-18", actualCompletion: null, percent: 78, roadId: "rd-north", notes: "Concrete pour St. 2+340 – 2+860 verified by materials engineer; 28-day core samples passed. Catch-up plan submitted for rain delays." },
+  { id: "RPIS-2025-008", name: "South Road Drainage System (Iwahig–Irawan)", type: "Drainage System", mode: "By Contract", fund: "NDRRMF + LGU Counterpart", objectCode: "1-06-03-01-04-00-00", folderNo: "OCE-IF-2025-008", implementorId: "CTR-004", inchargeId: "ENG-002", location: { barangays: ["Iwahig", "Irawan"], evidence: { source: "Geotagged Image", ref: "IMG_20251004_141233.jpg", lat: 9.7188, lng: 118.7252 } }, linearLength: 1650, contractedAmount: 32_700_000, actualAmount: 13_407_000, bidYear: 2024, contractedStart: "2025-02-01", contractedCompletion: "2025-10-15", actualStart: "2025-02-19", actualCompletion: null, percent: 41, roadId: "rd-south", notes: "Slipped 128 days on ROW dispute at St. 1+100; suspension lifted 2025-12-01. Contractor required to submit revised catch-up program." },
+  { id: "RPIS-2024-047", name: "Lacao Street Drainage Line", type: "Drainage System", mode: "By Contract", fund: "General Fund", objectCode: "1-06-03-01-04-00-00", folderNo: "OCE-IF-2024-047", implementorId: "CTR-005", inchargeId: "ENG-004", location: { barangays: ["Liwanag"], evidence: { source: "KML", ref: "lacao_drainage_asbuilt.kml", lat: 9.7392, lng: 118.7366 } }, linearLength: 940, contractedAmount: 6_900_000, actualAmount: 6_842_500, bidYear: 2024, contractedStart: "2024-10-01", contractedCompletion: "2025-02-14", actualStart: "2024-10-08", actualCompletion: "2025-02-10", percent: 100, roadId: "rd-lacao", notes: "As-built survey approved by P&D; final payment processed March 2025. Warranty runs to Feb 2026." },
+  { id: "RPIS-2025-017", name: "Mandaragat Road Concreting (Seg. 1)", type: "Concreting", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-IF-2025-017", implementorId: "CTR-003", inchargeId: "ENG-003", location: { barangays: ["Mandaragat"], evidence: { source: "GPX", ref: "mandaragat_seg1.gpx", lat: 9.7468, lng: 118.7515 } }, linearLength: 1980, contractedAmount: 27_500_000, actualAmount: 15_125_000, bidYear: 2025, contractedStart: "2025-04-22", contractedCompletion: "2026-04-22", actualStart: "2025-05-06", actualCompletion: null, percent: 55, roadId: "rd-mandaragat", notes: "Sub-base 100%, paving 41%. Rainy-season slippage absorbed by contract float; no extension of time filed." },
+  { id: "RPIS-2026-002", name: "Tiniguiban Road Shoulder Widening", type: "Road Shoulder", mode: "By Contract", fund: "FY Annual Plan", objectCode: "1-06-03-01-01-00-03", folderNo: "OCE-IF-2026-002", implementorId: "CTR-003", inchargeId: "ENG-006", location: { barangays: ["Tiniguiban"], evidence: null }, linearLength: 2400, contractedAmount: 18_200_000, actualAmount: 0, bidYear: 2026, contractedStart: "2026-05-04", contractedCompletion: "2026-12-15", actualStart: null, actualCompletion: null, percent: 0, roadId: "rd-tiniguiban", notes: "Notice to Proceed pending; contractor mobilization scheduled May 2026. Shoulder width 1.5 m both sides. No field capture yet — map pin derived from barangay centroid." },
+  { id: "RPIS-2026-005", name: "Libis Coastal Road Shoulder & Guardrail", type: "Road Shoulder", mode: "By Contract", fund: "FY Annual Plan", objectCode: "1-06-03-01-01-00-03", folderNo: "OCE-IF-2026-005", implementorId: "CTR-007", inchargeId: "ENG-002", location: { barangays: ["Bancao-Bancao"], evidence: { source: "KML", ref: "libis_coastal_rev1.kml", lat: 9.7212, lng: 118.7401 } }, linearLength: 3150, contractedAmount: 38_900_000, actualAmount: 0, bidYear: 2026, contractedStart: "2026-04-01", contractedCompletion: "2027-03-30", actualStart: null, actualCompletion: null, percent: 0, roadId: "rd-libis", notes: "Bid opening 18 Mar 2026, 10:00 at BAC Conference Room. Three contractors pre-qualified; includes 890 m steel guardrail." },
+  { id: "RPIS-2026-007", name: "Iwahig Slope Protection Works", type: "Slope Protection", mode: "By Contract", fund: "DPWH Convergence Program", objectCode: "1-06-03-01-02-00-00", folderNo: "OCE-IF-2026-007", implementorId: "CTR-004", inchargeId: "ENG-005", location: { barangays: ["Iwahig"], evidence: null }, linearLength: 620, contractedAmount: 52_000_000, actualAmount: 0, bidYear: 2026, contractedStart: "2026-06-01", contractedCompletion: "2027-08-15", actualStart: null, actualCompletion: null, percent: 0, roadId: "rd-iwahig", notes: "Pre-qualification underway. Geotechnical boring completed (3 boreholes, 15 m depth); gabion + ripraps design under review. Geotagged borehole photos to be attached after design approval." },
+  { id: "RPIS-2025-041", name: "San Manuel Road Concreting (Force Account)", type: "Concreting", mode: "By Administration", fund: "20% Development Fund", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-FA-2025-041", implementorId: "CTR-001", inchargeId: "ENG-004", location: { barangays: ["San Manuel"], evidence: { source: "GPX", ref: "san_manuel_forces.gpx", lat: 9.7501, lng: 118.7282 } }, linearLength: 1450, contractedAmount: 16_400_000, actualAmount: 6_724_000, bidYear: 2025, contractedStart: "2025-11-20", contractedCompletion: "2026-10-30", actualStart: "2026-01-12", actualCompletion: null, percent: 41, roadId: "rd-sanman", notes: "Force-account execution using LGU batching plant. Materials procurement on schedule; labor force at 22 personnel." },
+  { id: "RPIS-2024-052", name: "Burgos Street LED Street Lighting", type: "Street Lights", mode: "By Contract", fund: "General Fund", objectCode: "1-06-05-01-99-00-01", folderNo: "OCE-IF-2024-052", implementorId: "CTR-006", inchargeId: "ENG-006", location: { barangays: ["San Pedro (Poblacion)"], evidence: { source: "KML", ref: "burgos_lighting_asbuilt.kml", lat: 9.7352, lng: 118.7385 } }, linearLength: 860, contractedAmount: 9_600_000, actualAmount: 9_512_300, bidYear: 2024, contractedStart: "2024-07-15", contractedCompletion: "2024-12-10", actualStart: "2024-07-22", actualCompletion: "2024-12-02", percent: 100, roadId: "rd-burgos", notes: "64 LED fixtures energized; turnover accepted December 2024. Includes dusk-to-dawn photocell controllers." },
+  { id: "RPIS-2024-029", name: "Valencia Street Sidewalk Construction", type: "Sidewalk", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-06-03-01-01-00-04", folderNo: "OCE-IF-2024-029", implementorId: "CTR-002", inchargeId: "ENG-004", location: { barangays: ["San Pedro (Poblacion)"], evidence: { source: "KML", ref: "valencia_sidewalk_asbuilt.kml", lat: 9.7331, lng: 118.7356 } }, linearLength: 720, contractedAmount: 14_800_000, actualAmount: 14_655_000, bidYear: 2024, contractedStart: "2024-09-12", contractedCompletion: "2025-03-18", actualStart: "2024-09-28", actualCompletion: "2025-03-11", percent: 100, roadId: "rd-valencia", notes: "Interlocking blocks with ramps per BP 344 accessibility standards. Warranty period to September 2026." },
+  { id: "RPIS-2025-033", name: "City Motorpool Site Development", type: "Site Development", mode: "By Contract", fund: "General Fund", objectCode: "1-07-01-01-01-00-00", folderNo: "OCE-IF-2025-033", implementorId: "CTR-004", inchargeId: "ENG-003", location: { barangays: ["Santa Lourdes"], evidence: { source: "Geotagged Image", ref: "IMG_20251208_110245.jpg", lat: 9.7455, lng: 118.7312 } }, linearLength: 640, contractedAmount: 22_100_000, actualAmount: 7_514_000, bidYear: 2025, contractedStart: "2025-10-08", contractedCompletion: "2026-09-30", actualStart: "2025-10-24", actualCompletion: null, percent: 34, roadId: undefined, notes: "Cut-and-fill 68% complete; perimeter fence footings ongoing. Linear length recorded as site perimeter per P&D convention." },
+  { id: "RPIS-2025-036", name: "Bacungan Interior Road Concreting (Force Account)", type: "Concreting", mode: "By Administration", fund: "Calamity Fund (LDRRMF)", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-FA-2025-036", implementorId: "CTR-001", inchargeId: "ENG-003", location: { barangays: ["Bacungan"], evidence: { source: "GPX", ref: "bacungan_interior_forces.gpx", lat: 9.7712, lng: 118.7541 } }, linearLength: 1150, contractedAmount: 11_200_000, actualAmount: 4_592_000, bidYear: 2025, contractedStart: "2025-09-01", contractedCompletion: "2026-06-30", actualStart: "2025-09-14", actualCompletion: null, percent: 41, roadId: undefined, notes: "Post-typhoon restoration under force account with DPWH-assigned equipment. Aggregates hauled from city quarry." },
 ];
 
 /* ---------------- field activity feed ---------------- */
 
 export const activityFeed = [
   { ts: "2026-02-18 09:42", tag: "FIELD", text: "Percent-of-completion adjusted 56 → 62% on OCE-IF-2025-014 (Rizal Ave Sidewalk) — verified vs. geotagged IMG_20260218" },
-  { ts: "2026-02-17 16:05", tag: "GIS", text: "GPX track north_rd_seg3_2025-11.gpx ingested into PostGIS (ST_LineFromEncodedPath) — 1,412 vertices, 2.86 km" },
+  { ts: "2026-02-17 16:05", tag: "GIS", text: "GPX track north_rd_seg3_2025-11.gpx ingested as supporting evidence (ST_LineFromEncodedPath) — 1,412 vertices, 2.86 km" },
   { ts: "2026-02-17 11:30", tag: "BIDS", text: "Bid opening scheduled for OCE-IF-2026-005 Libis Coastal Rd Shoulder — 3 contractors pre-qualified, Mar 18 10:00" },
   { ts: "2026-02-16 14:22", tag: "INSP", text: "Materials core tests passed (3/3 cylinders) on North Road Concreting Seg. 3 — logged to OCE-IF-2024-036 folder" },
-  { ts: "2026-02-15 10:08", tag: "SYNC", text: "Nightly normalize ran on project_records — 14 rows, location ST_Transform(4326→3857) refreshed, 0 topology errors" },
+  { ts: "2026-02-15 10:08", tag: "SYNC", text: "Nightly normalize ran on project_records — 14 rows, barangay coverage re-indexed, evidence pins ST_Transform(4326→3857) refreshed" },
   { ts: "2026-02-14 08:51", tag: "FIELD", text: "Actual start encoded for OCE-FA-2025-041 San Manuel Force Account — 12 Jan 2026, crew of 22 deployed" },
 ];
