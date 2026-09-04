@@ -1,14 +1,13 @@
 import type { ReactNode } from "react";
 import { IconMap, IconRoad, IconLayers, IconChart, IconStack } from "./icons";
 import { roads } from "../data/roads";
-import { projects } from "../data/projects";
 
 export type PageId = "overview" | "inventory" | "projects" | "analytics" | "system";
 
 const items: { id: PageId; label: string; icon: (p: { size?: number; className?: string }) => ReactNode; note: string }[] = [
   { id: "overview", label: "Overview", icon: (p) => <IconMap {...p} />, note: "MAP CONSOLE" },
   { id: "inventory", label: "Road Inventory", icon: (p) => <IconRoad {...p} />, note: `${roads.length} SEGMENTS` },
-  { id: "projects", label: "Projects", icon: (p) => <IconLayers {...p} />, note: `${projects.length} RECORDS` },
+  { id: "projects", label: "Projects", icon: (p) => <IconLayers {...p} />, note: "21-FIELD REGISTRY" },
   { id: "analytics", label: "Analytics", icon: (p) => <IconChart {...p} />, note: "FY 2019–2026" },
   { id: "system", label: "GIS Stack", icon: (p) => <IconStack {...p} />, note: "DJANGO 6.1" },
 ];

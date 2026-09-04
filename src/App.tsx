@@ -7,21 +7,27 @@ import Inventory from "./pages/Inventory";
 import Projects from "./pages/Projects";
 import Analytics from "./pages/Analytics";
 import System from "./pages/System";
-import { projects } from "./data/projects";
+import { statusOf } from "./data/registry";
+import { useStore } from "./state/store";
 import { type Road } from "./data/roads";
 import { Seal } from "./components/icons";
 
 function Ticker() {
+  const { records } = useStore();
   const items = [
-    ...projects.filter((p) => p.status === "Ongoing" || p.status === "Delayed").map((p) => ({
-      text: `${p.code} ${p.name} — ${p.progress}%`, alert: p.status === "Delayed",
-    })),
-    { text: "PCI survey window opens Mar 02 for northern district", alert: false },
-    { text: "RPIS-2026-005 Libis Coastal Ext. — bid opening Mar 18, 10:00 BAC Conference Room", alert: false },
-    { text: "GeoServer cache reseed completed 03:00 — 0 errors", alert: false },
+    ...records
+      .filter((r) => { const l = statusOf(r).label; return l === "Ongoing" || l === "Delayed"; })
+      .sort((a, b) => b.percent - a.percent)
+      .map((r) => ({
+        text: `${r.id} ${r.name} — ${r.percent}% · ${statusOf(r).label}`,
+        alert: statusOf(r).label === "Delayed",
+      })),
+    { text: "PCI survey window opens Mar 02 for northern district — Materials & Testing Unit", alert: false },
+    { text: "OCE-IF-2026-005 Libis Coastal Rd Shoulder — bid opening Mar 18, 10:00 BAC Conference Room", alert: false },
+    { text: "PostGIS nightly normalize — 0 topology errors · ST_SnapToGrid(geom, 1e-6)", alert: false },
   ];
   const row = (key: string) => (
-    <span key={key} className="flex shrink-0 items-center">
+    <span key={key} className="flex shrink-0 items-center" aria-hidden={key === "b"}>
       {items.map((it, i) => (
         <span key={i} className="flex items-center font-mono text-[10px] tracking-[0.12em] whitespace-nowrap uppercase">
           <span className={`mx-4 h-1.5 w-1.5 rounded-full ${it.alert ? "bg-coral-500" : "bg-amber-500/70"}`} />
@@ -60,7 +66,7 @@ function Footer() {
           ))}
         </div>
         <p className="ml-auto font-mono text-[9px] tracking-[0.14em] text-paper-300/40 uppercase">
-          RPIS v2.4 · Rev C · © 2026 OCE GIS Unit
+          RPIS v3.0 · Rev C · © 2026 OCE GIS Unit
         </p>
       </div>
     </footer>

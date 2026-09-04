@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { roads, totalNetworkKm, type Road } from "../data/roads";
-import { projects, statusMeta } from "../data/projects";
-import { PageHeader, Reveal, CornerTicks, conditionMeta, fmtM } from "../components/ui";
+import { statusOf, fmtPesoM } from "../data/registry";
+import { useStore } from "../state/store";
+import { PageHeader, Reveal, CornerTicks, conditionMeta } from "../components/ui";
 import { IconDownload, IconFilter, IconSearch, IconSort, IconClose, IconPin, IconArrow } from "../components/icons";
 
 type SortKey = "name" | "lengthKm" | "pci" | "aadt" | "widthM";
@@ -14,6 +15,7 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
   onSelect: (id: string | null) => void;
   onLocate: (road: Road) => void;
 }) {
+  const { records } = useStore();
   const [search, setSearch] = useState(query);
   const [brgy, setBrgy] = useState("All");
   const [cls, setCls] = useState("All");
@@ -31,9 +33,9 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
   const barangays = useMemo(() => ["All", ...Array.from(new Set(roads.map((r) => r.barangay))).sort()], []);
   const projCount = useMemo(() => {
     const m = new Map<string, number>();
-    projects.forEach((p) => m.set(p.roadId, (m.get(p.roadId) ?? 0) + 1));
+    records.forEach((p) => { if (p.roadId) m.set(p.roadId, (m.get(p.roadId) ?? 0) + 1); });
     return m;
-  }, []);
+  }, [records]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -52,7 +54,7 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
   }, [search, brgy, cls, surface, cond, sortKey, dir]);
 
   const selected = roads.find((r) => r.id === selectedId) ?? null;
-  const selectedProjects = selected ? projects.filter((p) => p.roadId === selected.id) : [];
+  const selectedProjects = selected ? records.filter((p) => p.roadId === selected.id) : [];
   const filteredKm = filtered.reduce((s, r) => s + r.lengthKm, 0);
 
   const toggleSort = (k: SortKey) => {
@@ -274,16 +276,19 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
                   <p className="mb-2 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">Linked projects ({selectedProjects.length})</p>
                   {selectedProjects.length === 0 && <p className="rounded-[3px] border border-dashed border-line-400 px-3 py-3 font-mono text-[10.5px] text-text-400">No programmed projects on this segment.</p>}
                   <ul className="space-y-2">
-                    {selectedProjects.map((p) => (
-                      <li key={p.id} className="rounded-[3px] border border-line-300 bg-white/60 p-3 transition-colors hover:border-ink-800">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[9px] tracking-[0.14em] text-text-400 uppercase">{p.code}</span>
-                          <span className="rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider uppercase" style={{ color: statusMeta[p.status].color, background: statusMeta[p.status].soft }}>{p.status}</span>
-                        </div>
-                        <p className="mt-1 text-[12.5px] font-semibold text-ink-900">{p.name}</p>
-                        <p className="mt-0.5 font-mono text-[10px] text-text-600">{fmtM(p.budgetM)} · {p.contractor}</p>
-                      </li>
-                    ))}
+                    {selectedProjects.map((p) => {
+                      const meta = statusOf(p);
+                      return (
+                        <li key={p.id} className="rounded-[3px] border border-line-300 bg-white/60 p-3 transition-colors hover:border-ink-800">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-[9px] tracking-[0.14em] text-text-400 uppercase">{p.id} · {p.folderNo}</span>
+                            <span className="rounded-[3px] px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider uppercase" style={{ color: meta.color, background: meta.soft }}>{meta.label} {p.percent}%</span>
+                          </div>
+                          <p className="mt-1 text-[12.5px] font-semibold text-ink-900">{p.name}</p>
+                          <p className="mt-0.5 font-mono text-[10px] text-text-600">{fmtPesoM(p.contractedAmount)} · {p.type} · {p.mode}</p>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </div>

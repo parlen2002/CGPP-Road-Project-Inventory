@@ -1,17 +1,33 @@
 import { useMemo } from "react";
 import { networkByYear, surfaceMix, conditionMix, roads, totalNetworkKm } from "../data/roads";
-import { projects, statusMeta, budgetByProgram } from "../data/projects";
+import { PROJECT_TYPES, TYPE_COLORS, STATUS_META, STATUS_LABELS, statusOf } from "../data/registry";
+import { useStore } from "../state/store";
 import { PageHeader, Reveal, CornerTicks, fmtM } from "../components/ui";
 import { AreaChart, Donut, HBars, StackedBar } from "../components/charts";
 
 export default function Analytics() {
+  const { records } = useStore();
+
   const statusDonut = useMemo(
     () =>
-      (["Ongoing", "For Bidding", "Planned", "Completed", "Delayed"] as const).map((s) => ({
-        label: s, value: +projects.filter((p) => p.status === s).reduce((sum, p) => sum + p.budgetM, 0).toFixed(1),
-        color: statusMeta[s].color,
-      })),
-    []
+      STATUS_LABELS.map((l) => ({
+        label: l,
+        value: +(records.filter((r) => statusOf(r).label === l).reduce((s, r) => s + r.contractedAmount, 0) / 1e6).toFixed(1),
+        color: STATUS_META[l].color,
+      })).filter((d) => d.value > 0),
+    [records]
+  );
+
+  const typeBars = useMemo(
+    () =>
+      PROJECT_TYPES
+        .map((t) => ({
+          label: t,
+          value: +(records.filter((r) => r.type === t).reduce((s, r) => s + r.contractedAmount, 0) / 1e6).toFixed(1),
+          color: TYPE_COLORS[t],
+        }))
+        .filter((d) => d.value > 0),
+    [records]
   );
 
   const classStats = useMemo(() => {
@@ -23,12 +39,14 @@ export default function Analytics() {
     });
   }, []);
 
+  const totalM = records.reduce((s, r) => s + r.contractedAmount, 0) / 1e6;
+
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6">
       <PageHeader
         sheet="RPIS-ANL-04"
         title="Network Analytics"
-        subtitle="Longitudinal paving growth, budget distribution across work programs, surface composition and condition exposure — aggregated nightly from the PostGIS warehouse."
+        subtitle="Longitudinal paving growth, budget distribution across the seven project types, surface composition and condition exposure — aggregated nightly from the PostGIS warehouse."
       />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-12">
@@ -51,20 +69,17 @@ export default function Analytics() {
           <div className="relative h-full rounded-[4px] border-2 border-ink-800 bg-ink-900 p-5">
             <CornerTicks />
             <h2 className="font-display mb-1 text-2xl font-bold tracking-wide text-paper-100 uppercase">Budget by Status</h2>
-            <p className="mb-4 font-mono text-[9.5px] tracking-[0.16em] text-paper-300/50 uppercase">₱ millions programmed</p>
-            <Donut data={statusDonut} centerLabel={fmtM(projects.reduce((s, p) => s + p.budgetM, 0))} centerSub="total" size={172} />
+            <p className="mb-4 font-mono text-[9.5px] tracking-[0.16em] text-paper-300/50 uppercase">₱ millions · slider-derived status</p>
+            <Donut data={statusDonut} centerLabel={fmtM(totalM)} centerSub="contracted" size={172} />
           </div>
         </Reveal>
 
-        {/* budget by program */}
+        {/* budget by type */}
         <Reveal className="lg:col-span-5" delay={0}>
           <div className="relative h-full rounded-[4px] border border-line-300 bg-paper-100 p-5">
             <CornerTicks color="border-ink-800/50" />
-            <h2 className="font-display mb-4 text-2xl font-bold tracking-wide text-ink-900 uppercase">Appropriation by Program</h2>
-            <HBars unit="₱M" data={budgetByProgram.map((b, i) => ({
-              label: b.label, value: b.value,
-              color: ["#175c43", "#1e7a58", "#12897e", "#4a70b0", "#f0a32b", "#d18a14", "#de5a36", "#8a6d3b"][i % 8],
-            }))} />
+            <h2 className="font-display mb-4 text-2xl font-bold tracking-wide text-ink-900 uppercase">Appropriation by Project Type</h2>
+            <HBars unit="₱M" data={typeBars} />
           </div>
         </Reveal>
 
@@ -124,11 +139,13 @@ export default function Analytics() {
             </thead>
             <tbody className="divide-y divide-line-300 font-mono text-[11.5px]">
               {[
-                ["Concreting", 5, 186.0, 141.2, 96.4],
-                ["Widening", 3, 181.0, 121.9, 44.2],
-                ["Rehabilitation", 3, 88.0, 69.8, 38.1],
-                ["Bridges", 1, 52.0, 0, 0],
-                ["Slope Protection", 1, 32.7, 28.3, 11.6],
+                ["Concreting", 5, 141.5, 113.8, 78.6],
+                ["Road Shoulder", 2, 57.1, 0, 0],
+                ["Slope Protection", 1, 52.0, 0, 0],
+                ["Street Lights", 2, 28.2, 11.7, 5.2],
+                ["Sidewalk", 2, 39.6, 30.0, 21.4],
+                ["Drainage System", 2, 39.6, 13.4, 6.8],
+                ["Site Development", 1, 22.1, 7.5, 3.1],
               ].map((row) => {
                 const [name, n, prog, obl, dis] = row as [string, number, number, number, number];
                 const rate = prog ? Math.round((obl / prog) * 100) : 0;

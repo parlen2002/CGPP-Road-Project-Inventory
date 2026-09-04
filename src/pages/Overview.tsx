@@ -1,279 +1,279 @@
 import { useMemo, useState } from "react";
-import MapView, { type Focus } from "../components/MapView";
+import MapView from "../components/MapView";
+import { PageHeader, Reveal, CornerTicks, CountUp, conditionMeta } from "../components/ui";
 import { roads, networkByYear, totalNetworkKm, pavedPct, barangayCount, type Road } from "../data/roads";
-import { projects, statusMeta, activityFeed } from "../data/projects";
-import { CornerTicks, CountUp, Reveal, StatusPill, fmtM, conditionMeta } from "../components/ui";
-import { Donut, HBars, Sparkline, StackedBar } from "../components/charts";
-import { IconArrow, IconPin, IconRoad, IconClose } from "../components/icons";
+import {
+  statusOf, STATUS_META, STATUS_LABELS, typeShort, fmtPesoM, activityFeed,
+  PROJECT_TYPES, TYPE_COLORS,
+} from "../data/registry";
+import { useStore } from "../state/store";
+import { Donut, HBars, StackedBar, AreaChart } from "../components/charts";
 import { surfaceMix, conditionMix } from "../data/roads";
 
-function SectionHead({ no, title, right }: { no: string; title: string; right?: React.ReactNode }) {
-  return (
-    <div className="mb-4 flex items-end justify-between gap-4">
-      <div className="flex items-end gap-3">
-        <span className="font-display border-2 border-ink-800 bg-amber-500 px-2 py-0.5 text-lg leading-none font-bold text-ink-950">{no}</span>
-        <h2 className="font-display text-2xl leading-none font-bold tracking-wide text-ink-900 uppercase sm:text-3xl">{title}</h2>
-      </div>
-      {right}
-      <span className="hidden h-px flex-1 bg-line-400 sm:block" />
-    </div>
-  );
-}
-
-const tagColor: Record<string, string> = {
-  FIELD: "#f0a32b", GIS: "#12897e", BIDS: "#4a70b0", INSP: "#de5a36", SYNC: "#1e7a58",
-};
-
 export default function Overview({ focus, onLocate, onOpenInventory }: {
-  focus: Focus | null;
+  focus: { point: [number, number]; zoom: number; key: number } | null;
   onLocate: (point: [number, number], zoom?: number) => void;
   onOpenInventory: (roadId: string) => void;
 }) {
+  const { records } = useStore();
   const [selectedRoad, setSelectedRoad] = useState<Road | null>(null);
 
-  const stats = useMemo(() => {
-    const active = projects.filter((p) => p.status === "Ongoing" || p.status === "Delayed");
-    const portfolio = projects.reduce((s, p) => s + p.budgetM, 0);
-    const pci = roads.reduce((s, r) => s + r.pci, 0) / roads.length;
-    const byStatus = (["Ongoing", "For Bidding", "Planned", "Completed", "Delayed"] as const).map((s) => ({
-      label: s, value: projects.filter((p) => p.status === s).length, color: statusMeta[s].color,
-    }));
-    return { active, portfolio, pci, byStatus };
-  }, []);
+  const today = new Date().toISOString().slice(0, 10);
+  const totalContracted = records.reduce((s, r) => s + r.contractedAmount, 0);
+  const totalActual = records.reduce((s, r) => s + r.actualAmount, 0);
+  const weightedPct = totalContracted
+    ? Math.round(records.reduce((s, r) => s + r.percent * r.contractedAmount, 0) / totalContracted)
+    : 0;
+  const activeCount = records.filter((r) => { const l = statusOf(r).label; return l === "Ongoing" || l === "Delayed"; }).length;
 
-  const brgyKm = useMemo(() => {
-    const map = new Map<string, number>();
-    roads.forEach((r) => {
-      const key = r.barangay.split(" / ")[0];
-      map.set(key, (map.get(key) ?? 0) + r.lengthKm);
-    });
-    return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([label, value]) => ({ label, value: +value.toFixed(1), color: "#175c43" }));
-  }, []);
+  const feed = useMemo(
+    () => records.filter((r) => r.percent > 0 && r.percent < 100).sort((a, b) => b.contractedAmount - a.contractedAmount).slice(0, 5),
+    [records]
+  );
 
-  const kpis: { label: string; value: number; decimals: number; suffix: string; prefix?: string; sub: string; wide?: boolean }[] = [
-    { label: "City road network", value: totalNetworkKm, decimals: 1, suffix: " km", sub: `${roads.length} inventoried segments · WGS 84`, wide: true },
-    { label: "Active worksites", value: stats.active.length, decimals: 0, suffix: "", sub: `${projects.filter((p) => p.status === "Delayed").length} flagged delayed` },
-    { label: "Project portfolio", value: stats.portfolio, decimals: 1, prefix: "₱", suffix: "M", sub: "FY 2019–2026 programmed" },
-    { label: "Mean pavement index", value: stats.pci, decimals: 0, suffix: "", sub: "PCI scale 0–100" },
-    { label: "Barangays served", value: barangayCount, decimals: 0, suffix: "", sub: `${pavedPct}% network paved` },
+  const statusDonut = useMemo(
+    () => STATUS_LABELS.map((l) => ({
+      label: l,
+      value: +records.filter((r) => statusOf(r).label === l).reduce((s, r) => s + r.contractedAmount, 0).toFixed(0) / 1e6,
+      color: STATUS_META[l].color,
+    })).filter((d) => d.value > 0),
+    [records]
+  );
+
+  const typeBars = useMemo(
+    () => PROJECT_TYPES
+      .map((t) => ({ label: t, value: +(records.filter((r) => r.type === t).reduce((s, r) => s + r.contractedAmount, 0) / 1e6).toFixed(1), color: TYPE_COLORS[t] }))
+      .filter((d) => d.value > 0),
+    [records]
+  );
+
+  const kpis: { label: string; node: React.ReactNode; sub: string; wide?: boolean }[] = [
+    {
+      label: "City road network", wide: true,
+      node: <CountUp value={totalNetworkKm} decimals={1} suffix=" km" />,
+      sub: `${roads.length} inventoried segments · WGS 84`,
+    },
+    {
+      label: "Active projects",
+      node: <CountUp value={activeCount} />,
+      sub: `${records.length} registered total`,
+    },
+    {
+      label: "Contracted value",
+      node: <CountUp value={totalContracted / 1e6} decimals={1} prefix="₱" suffix="M" />,
+      sub: "approved appropriations",
+    },
+    {
+      label: "Weighted completion",
+      node: <CountUp value={weightedPct} suffix="%" />,
+      sub: "slider-encoded progress",
+    },
   ];
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6">
-      {/* ------- 01 · MAP CONSOLE ------- */}
-      <Reveal>
-        <SectionHead
-          no="01"
-          title="Geospatial Console"
-          right={
-            <p className="hidden shrink-0 font-mono text-[10px] tracking-[0.16em] text-text-400 uppercase lg:block">
-              Layer: road_condition_v3 · Live from PostGIS
-            </p>
-          }
-        />
-        <div className="relative">
-          <CornerTicks />
-          <MapView
-            roads={roads}
-            focus={focus}
-            selectedRoadId={selectedRoad?.id ?? null}
-            onSelectRoad={setSelectedRoad}
-            className="h-[56vh] min-h-[430px]"
-          />
-          {/* selected road card */}
-          {selectedRoad && (
-            <div className="anim-fade-up absolute right-3 bottom-10 z-[600] w-72 rounded-[4px] border-2 border-ink-800 bg-paper-100 shadow-[0_16px_40px_rgba(7,17,12,0.5)]">
-              <div className="flex items-start justify-between gap-2 border-b-2 border-ink-800 bg-ink-900 px-3.5 py-2.5">
-                <div>
-                  <p className="font-mono text-[9px] tracking-[0.2em] text-amber-400 uppercase">{selectedRoad.roadClass} ROAD · {selectedRoad.id.toUpperCase()}</p>
-                  <p className="font-display text-xl leading-tight font-bold text-paper-100">{selectedRoad.name}</p>
-                </div>
-                <button onClick={() => setSelectedRoad(null)} className="cursor-pointer p-1 text-paper-300/60 hover:text-amber-400">
-                  <IconClose size={15} />
-                </button>
-              </div>
-              <dl className="grid grid-cols-3 gap-px bg-line-300 font-mono text-[10.5px]">
-                {[
-                  ["LENGTH", `${selectedRoad.lengthKm.toFixed(1)} km`],
-                  ["WIDTH", `${selectedRoad.widthM} m`],
-                  ["PCI", `${selectedRoad.pci}`],
-                  ["SURFACE", selectedRoad.surface.toUpperCase()],
-                  ["AADT", selectedRoad.aadt.toLocaleString()],
-                  ["INSPECTED", selectedRoad.lastInspection],
-                ].map(([k, v]) => (
-                  <div key={k} className="bg-paper-100 px-2.5 py-1.5">
-                    <dt className="text-[8.5px] tracking-[0.16em] text-text-400">{k}</dt>
-                    <dd className="font-semibold text-ink-900">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-              <button
-                onClick={() => onOpenInventory(selectedRoad.id)}
-                className="group flex w-full cursor-pointer items-center justify-center gap-2 bg-amber-500 py-2 font-mono text-[10.5px] font-semibold tracking-[0.16em] text-ink-950 uppercase transition-colors hover:bg-amber-400"
-              >
-                <IconRoad size={14} /> Open full record
-                <IconArrow size={13} className="transition-transform group-hover:translate-x-1" />
-              </button>
-            </div>
-          )}
-        </div>
+    <div className="mx-auto max-w-[1520px] px-4 py-6 sm:px-6">
+      <PageHeader
+        sheet="RPIS-GIS-01"
+        title="Geospatial Console"
+        subtitle="Live PostGIS view of the city road network and registered road projects — condition-surveyed segments, station-pinned works, and field-captured locations (KML / GPX / geotagged imagery)."
+      />
 
-        {/* legend strip */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[3px] border border-line-300 bg-paper-100 px-3.5 py-2.5">
-          <span className="font-mono text-[9px] tracking-[0.2em] text-text-400 uppercase">Legend</span>
-          {(Object.keys(conditionMeta) as (keyof typeof conditionMeta)[]).map((c) => (
-            <span key={c} className="flex items-center gap-1.5 font-mono text-[10px] text-text-600">
-              <i className="h-[3px] w-5 rounded-full" style={{ background: c === "Good" ? "#2fae7d" : c === "Fair" ? "#f0a32b" : "#e8603c" }} /> {c}
-            </span>
+      {/* KPI ledger strip */}
+      <Reveal className="mt-6">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border-2 border-ink-800 bg-ink-800 lg:grid-cols-12">
+          {kpis.map((k) => (
+            <div key={k.label} className={`bg-ink-900 px-5 py-4 transition-colors hover:bg-ink-850 ${k.wide ? "col-span-2 lg:col-span-3" : ""}`}>
+              <p className="font-mono text-[9.5px] tracking-[0.22em] text-paper-300/50 uppercase">{k.label}</p>
+              <p className="font-display mt-1 text-[40px] leading-none font-bold text-paper-100">{k.node}</p>
+              <p className="mt-1.5 font-mono text-[9px] tracking-[0.14em] text-amber-400/80 uppercase">{k.sub}</p>
+            </div>
           ))}
-          <span className="h-4 w-px bg-line-400" />
-          {["National", "Provincial", "City"].map((c, i) => (
-            <span key={c} className="flex items-center gap-1.5 font-mono text-[10px] text-text-600">
-              <i className="rounded-full bg-ink-800" style={{ width: 18, height: [5, 4, 3][i] }} /> {c}
-            </span>
-          ))}
-          <span className="h-4 w-px bg-line-400" />
-          {(Object.keys(statusMeta) as (keyof typeof statusMeta)[]).map((s) => (
-            <span key={s} className="flex items-center gap-1.5 font-mono text-[10px] text-text-600">
-              <i className="h-2.5 w-2.5 rounded-full border border-ink-900" style={{ background: statusMeta[s].color }} /> {s}
-            </span>
-          ))}
+          <div className="hidden bg-ink-900 px-5 py-4 transition-colors hover:bg-ink-850 lg:block">
+            <p className="font-mono text-[9.5px] tracking-[0.22em] text-paper-300/50 uppercase">Actual to date</p>
+            <p className="font-display mt-1 text-[40px] leading-none font-bold text-amber-400">
+              <CountUp value={totalActual / 1e6} decimals={1} prefix="₱" suffix="M" />
+            </p>
+            <p className="mt-1.5 font-mono text-[9px] tracking-[0.14em] text-paper-300/50 uppercase">{Math.round((totalActual / (totalContracted || 1)) * 100)}% of contracted</p>
+          </div>
         </div>
       </Reveal>
 
-      {/* ------- 02 · KPI STRIP ------- */}
-      <div className="mt-10">
-        <Reveal><SectionHead no="02" title="Network Ledger" /></Reveal>
-        <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
-          {kpis.map((k, i) => (
-            <Reveal key={k.label} delay={i * 60} className={k.wide ? "col-span-2 lg:col-span-1" : ""}>
-              <div className="group relative h-full overflow-hidden rounded-[4px] border border-line-300 bg-paper-100 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-ink-800 hover:shadow-[0_10px_28px_rgba(21,35,28,0.14)]" style={{ ["--i" as string]: i }}>
-                <span className="absolute inset-x-0 top-0 h-[3px] origin-left scale-x-0 bg-amber-500 transition-transform duration-300 group-hover:scale-x-100" />
-                <p className="font-mono text-[9.5px] tracking-[0.18em] text-text-400 uppercase">{k.label}</p>
-                <p className="font-display mt-1.5 text-4xl leading-none font-bold text-ink-900 lg:text-[44px]">
-                  <CountUp value={k.value} decimals={k.decimals} prefix={k.prefix ?? ""} suffix={k.suffix} />
+      <div className="mt-5 grid gap-5 lg:grid-cols-12">
+        {/* map */}
+        <Reveal className="lg:col-span-12 xl:col-span-8">
+          <section className="relative rounded-[4px] border-2 border-ink-800 bg-ink-950 shadow-[0_24px_60px_rgba(12,25,19,0.35)]">
+            <CornerTicks />
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink-800 px-4 py-3">
+              <div>
+                <h2 className="font-display text-[26px] leading-none font-bold tracking-wide text-paper-100 uppercase">
+                  Road Network & Project Stations
+                </h2>
+                <p className="mt-1 font-mono text-[9.5px] tracking-[0.18em] text-paper-300/50 uppercase">
+                  Puerto Princesa City · Palawan · EPSG:4326 → 3857
                 </p>
-                <p className="mt-2 font-mono text-[9.5px] text-text-400">{k.sub}</p>
-                {k.wide && (
-                  <div className="mt-2 flex items-end justify-between">
-                    <Sparkline values={networkByYear.map((n) => n.km)} width={150} height={36} color="#d18a14" />
-                    <p className="font-mono text-[9.5px] text-text-400">paved km, '19→'26</p>
-                  </div>
-                )}
               </div>
-            </Reveal>
-          ))}
+              <div className="flex items-center gap-2 font-mono text-[9.5px] tracking-wider text-paper-300/60 uppercase">
+                <span className="dot-live h-2 w-2 rounded-full bg-pine-400" />
+                PostGIS · {roads.length} segments / {records.length} stations
+              </div>
+            </div>
+            <MapView focus={focus} roads={roads} onLocate={(r: Road) => { setSelectedRoad(r); onLocate(r.geometry[Math.floor(r.geometry.length / 2)], 15); }} />
+            {selectedRoad && (
+              <div className="anim-fade-up flex items-center gap-3 border-t border-ink-700 px-4 py-2.5">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: conditionMeta[selectedRoad.condition].color }} />
+                <p className="min-w-0 truncate font-mono text-[10.5px] text-paper-300/80">
+                  <b className="text-amber-400">{selectedRoad.name}</b> · {selectedRoad.lengthKm} km · PCI {selectedRoad.pci} · {selectedRoad.surface}
+                </p>
+                <button
+                  onClick={() => onOpenInventory(selectedRoad.id)}
+                  className="ml-auto shrink-0 cursor-pointer rounded-[3px] border border-amber-500/50 px-2.5 py-1 font-mono text-[9.5px] font-semibold tracking-[0.14em] text-amber-400 uppercase transition-all hover:bg-amber-500 hover:text-ink-950"
+                >
+                  Open record →
+                </button>
+                <button onClick={() => setSelectedRoad(null)} className="shrink-0 cursor-pointer font-mono text-[9.5px] text-paper-300/40 uppercase hover:text-paper-100">✕</button>
+              </div>
+            )}
+          </section>
+
+          {/* active works feed */}
+          <Reveal className="mt-5" delay={80}>
+            <div className="rounded-[4px] border border-line-300 bg-paper-100 p-5">
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2 className="font-display text-2xl font-bold tracking-wide text-ink-900 uppercase">Active Works Register</h2>
+                <p className="font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">click a row to fly the console to station</p>
+              </div>
+              <ul className="divide-y divide-line-300">
+                {feed.map((p) => {
+                  const meta = statusOf(p);
+                  return (
+                    <li key={p.id}>
+                      <button
+                        onClick={() => onLocate([p.location.lat, p.location.lng], 15)}
+                        className="group grid w-full cursor-pointer grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-3 text-left transition-colors hover:bg-ink-900/[0.04] sm:grid-cols-[1fr_120px_86px_auto]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13.5px] font-semibold text-ink-900 group-hover:text-pine-700">{p.name}</span>
+                          <span className="font-mono text-[9px] tracking-[0.14em] text-text-400 uppercase">
+                            {p.id} · {typeShort[p.type]} · {p.mode} · {p.folderNo}
+                          </span>
+                        </span>
+                        <span className="hidden sm:block">
+                          <span className="block h-[7px] overflow-hidden rounded-full bg-ink-900/10">
+                            <span className="block h-full rounded-full transition-[width] duration-700" style={{ width: `${p.percent}%`, background: meta.color }} />
+                          </span>
+                          <span className="mt-1 block font-mono text-[9px] text-text-400 tabular">{p.percent}% of scope</span>
+                        </span>
+                        <span className="hidden text-right font-mono text-[11.5px] font-semibold text-ink-900 tabular sm:block">{fmtPesoM(p.contractedAmount)}</span>
+                        <span
+                          className="justify-self-end rounded-[3px] px-2 py-1 font-mono text-[9px] font-bold tracking-wider uppercase transition-transform group-hover:translate-x-0.5"
+                          style={{ color: meta.color, background: meta.soft }}
+                        >
+                          {meta.label} →
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </Reveal>
+        </Reveal>
+
+        {/* right column */}
+        <div className="space-y-5 lg:col-span-12 xl:col-span-4">
+          <Reveal delay={60}>
+            <div className="relative rounded-[4px] border-2 border-ink-800 bg-ink-900 p-5">
+              <CornerTicks />
+              <h2 className="font-display mb-1 text-2xl font-bold tracking-wide text-paper-100 uppercase">Program by Status</h2>
+              <p className="mb-5 font-mono text-[9.5px] tracking-[0.16em] text-paper-300/50 uppercase">
+                contracted ₱ millions · as of {today}
+              </p>
+              <Donut data={statusDonut} centerLabel={fmtPesoM(totalContracted)} centerSub="contracted" size={168} />
+            </div>
+          </Reveal>
+
+          <Reveal delay={120}>
+            <div className="relative rounded-[4px] border border-line-300 bg-paper-100 p-5">
+              <CornerTicks color="border-ink-800/50" />
+              <h2 className="font-display mb-4 text-2xl font-bold tracking-wide text-ink-900 uppercase">Network Condition</h2>
+              <div className="mb-4 flex items-center gap-6">
+                <div>
+                  <p className="font-display text-5xl leading-none font-bold text-ink-900"><CountUp value={pavedPct} suffix="%" /></p>
+                  <p className="mt-1 font-mono text-[9px] tracking-[0.16em] text-text-400 uppercase">paved coverage</p>
+                </div>
+                <div className="h-14 w-px bg-line-400" />
+                <div>
+                  <p className="font-display text-5xl leading-none font-bold text-ink-900"><CountUp value={barangayCount} /></p>
+                  <p className="mt-1 font-mono text-[9px] tracking-[0.16em] text-text-400 uppercase">barangays served</p>
+                </div>
+              </div>
+              {["Good", "Fair", "Poor"].map((c) => {
+                const km = conditionMix.find((x) => x.label === c)!.km;
+                const pct = Math.round((km / totalNetworkKm) * 100);
+                const m = conditionMeta[c as keyof typeof conditionMeta];
+                return (
+                  <div key={c} className="group mb-2.5">
+                    <div className="mb-1 flex justify-between font-mono text-[9.5px] tracking-[0.14em] text-text-600 uppercase">
+                      <span>{c} · PCI {c === "Good" ? "70–100" : c === "Fair" ? "40–69" : "0–39"}</span>
+                      <span className="tabular">{km} km · {pct}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-[2px] bg-ink-900/10">
+                      <div className="h-full rounded-[2px] transition-all duration-500 group-hover:brightness-110" style={{ width: `${pct}%`, background: m.color }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Reveal>
+
+          <Reveal delay={180}>
+            <div className="rounded-[4px] border border-line-300 bg-paper-100 p-5">
+              <h2 className="font-display mb-4 text-2xl font-bold tracking-wide text-ink-900 uppercase">Surface Composition</h2>
+              <StackedBar data={surfaceMix} />
+            </div>
+          </Reveal>
         </div>
       </div>
 
-      {/* ------- 03 · WORKS + STATUS ------- */}
-      <div className="mt-10 grid gap-4 lg:grid-cols-12">
-        <Reveal className="lg:col-span-5" delay={0}>
-          <SectionHead no="03" title="Active Works" />
-          <div className="relative overflow-hidden rounded-[4px] border-2 border-ink-800 bg-ink-900">
-            <CornerTicks />
-            <div className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-ink-700 bg-ink-950/60 px-4 py-2.5">
-              <p className="font-mono text-[9.5px] tracking-[0.2em] text-paper-300/60 uppercase">Ongoing + delayed · sort by physical progress</p>
-              <span className="flex items-center gap-1.5 font-mono text-[9.5px] text-pine-400">
-                <span className="dot-live h-1.5 w-1.5 rounded-full bg-pine-400" /> FIELD SYNC 5 MIN AGO
-              </span>
+      {/* lower grid */}
+      <div className="mt-5 grid gap-5 lg:grid-cols-12">
+        <Reveal className="lg:col-span-5">
+          <div className="relative h-full rounded-[4px] border border-line-300 bg-paper-100 p-5">
+            <CornerTicks color="border-ink-800/50" />
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="font-display text-2xl font-bold tracking-wide text-ink-900 uppercase">Paved Network Growth</h2>
+              <p className="font-mono text-[9.5px] tracking-[0.14em] text-amber-600 uppercase">km · FY 2019–2026</p>
             </div>
-            <ul className="divide-y divide-ink-700/70">
-              {[...stats.active].sort((a, b) => b.progress - a.progress).map((p) => {
-                const m = statusMeta[p.status];
-                return (
-                  <li key={p.id} className="group cursor-pointer px-4 py-3 transition-colors hover:bg-ink-800/70" onClick={() => onLocate(p.point, 15)}>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="min-w-0 truncate text-[13.5px] font-semibold text-paper-100 group-hover:text-amber-300">
-                        <span className="mr-2 font-mono text-[9.5px] text-paper-300/50">{p.code}</span>{p.name}
-                      </p>
-                      <span className="shrink-0 font-mono text-[11px] font-semibold tabular" style={{ color: m.color }}>{p.progress}%</span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-3">
-                      <div className="h-[7px] flex-1 overflow-hidden rounded-full bg-ink-700">
-                        <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${p.progress}%`, background: m.color }} />
-                      </div>
-                      <span className="font-mono text-[10px] text-paper-300/60 tabular">{fmtM(p.budgetM)}</span>
-                    </div>
-                    <p className="mt-1.5 flex items-center gap-2 font-mono text-[9.5px] text-paper-300/50">
-                      <IconPin size={11} /> {p.roadName} · {p.contractor}
-                      {p.status === "Delayed" && <StatusPill label="DELAYED" color={m.color} soft={m.soft} />}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="border-t border-ink-700 px-4 py-2 font-mono text-[9px] tracking-[0.16em] text-paper-300/40 uppercase">
-              Click an entry to fly the console to its station point
-            </p>
+            <AreaChart points={networkByYear} height={150} />
           </div>
         </Reveal>
 
-        <Reveal className="lg:col-span-4" delay={90}>
-          <SectionHead no="04" title="Portfolio Status" />
-          <div className="relative rounded-[4px] border-2 border-ink-800 bg-ink-900 p-5">
-            <CornerTicks />
-            <Donut data={stats.byStatus} centerLabel={String(projects.length)} centerSub="projects" size={168} />
-            <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[3px] bg-ink-700 font-mono text-[10px]">
-              <div className="bg-ink-950/70 px-3 py-2">
-                <p className="text-paper-300/50 uppercase tracking-[0.14em] text-[8.5px]">Obligated</p>
-                <p className="mt-0.5 text-[12px] font-semibold text-amber-400 tabular">{fmtM(projects.filter((p) => p.status !== "Planned").reduce((s, p) => s + p.budgetM, 0))}</p>
-              </div>
-              <div className="bg-ink-950/70 px-3 py-2">
-                <p className="text-paper-300/50 uppercase tracking-[0.14em] text-[8.5px]">Avg progress (active)</p>
-                <p className="mt-0.5 text-[12px] font-semibold text-pine-400 tabular">
-                  {Math.round(stats.active.reduce((s, p) => s + p.progress, 0) / (stats.active.length || 1))}%
-                </p>
-              </div>
+        <Reveal className="lg:col-span-4" delay={80}>
+          <div className="relative h-full rounded-[4px] border border-line-300 bg-paper-100 p-5">
+            <CornerTicks color="border-ink-800/50" />
+            <div className="mb-4 flex items-baseline justify-between gap-2">
+              <h2 className="font-display text-2xl font-bold tracking-wide text-ink-900 uppercase">Appropriation by Type</h2>
+              <p className="font-mono text-[9.5px] tracking-[0.14em] text-text-400 uppercase">₱M</p>
             </div>
+            <HBars data={typeBars} unit="₱M" />
           </div>
         </Reveal>
 
         <Reveal className="lg:col-span-3" delay={160}>
-          <SectionHead no="05" title="Condition" />
-          <div className="relative rounded-[4px] border border-line-300 bg-paper-100 p-5">
-            <CornerTicks color="border-ink-800/50" />
-            <p className="mb-3 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">Network by condition (km)</p>
-            <HBars data={conditionMix.map((c) => ({ label: c.label, value: c.km, color: c.color }))} />
-            <div className="my-5 h-px bg-line-300" />
-            <p className="mb-3 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">Surface composition</p>
-            <StackedBar data={surfaceMix} />
-          </div>
-        </Reveal>
-      </div>
-
-      {/* ------- 06 · COVERAGE + ACTIVITY ------- */}
-      <div className="mt-10 grid gap-4 pb-4 lg:grid-cols-2">
-        <Reveal delay={0}>
-          <SectionHead no="06" title="Barangay Coverage" />
-          <div className="relative rounded-[4px] border border-line-300 bg-paper-100 p-5">
-            <CornerTicks color="border-ink-800/50" />
-            <p className="mb-4 font-mono text-[9.5px] tracking-[0.16em] text-text-400 uppercase">
-              Top inventoried segments by barangay · of {barangayCount} total
-            </p>
-            <HBars data={brgyKm} />
-          </div>
-        </Reveal>
-
-        <Reveal delay={90}>
-          <SectionHead no="07" title="Field Activity Log" />
-          <div className="relative overflow-hidden rounded-[4px] border-2 border-ink-800 bg-ink-950">
+          <div className="relative flex h-full flex-col rounded-[4px] border-2 border-ink-800 bg-ink-950">
             <CornerTicks />
-            <div className="flex items-center gap-2 border-b border-ink-700 bg-ink-900 px-4 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full border border-ink-600 bg-coral-500" />
-              <span className="h-2.5 w-2.5 rounded-full border border-ink-600 bg-amber-500" />
-              <span className="h-2.5 w-2.5 rounded-full border border-ink-600 bg-pine-400" />
-              <span className="ml-2 font-mono text-[9.5px] tracking-[0.18em] text-paper-300/60 uppercase">tail -f /var/log/rpis/field.sync</span>
+            <div className="flex items-center gap-2 border-b border-ink-700 px-4 py-3">
+              <span className="dot-live h-1.5 w-1.5 rounded-full bg-pine-400" />
+              <h2 className="font-display text-xl font-bold tracking-wide text-paper-100 uppercase">Field Activity</h2>
             </div>
-            <ul className="max-h-[300px] divide-y divide-ink-800/80 overflow-y-auto">
-              {activityFeed.map((a) => (
-                <li key={a.ts} className="flex gap-3 px-4 py-2.5 font-mono text-[10.5px] leading-relaxed transition-colors hover:bg-ink-900">
-                  <span className="shrink-0 text-paper-300/45 tabular">{a.ts.slice(5)}</span>
-                  <span className="shrink-0 font-semibold" style={{ color: tagColor[a.tag] ?? "#ffc24d" }}>[{a.tag}]</span>
-                  <span className="text-paper-300/85">{a.text}</span>
+            <ul className="flex-1 divide-y divide-ink-800 overflow-y-auto">
+              {activityFeed.map((a, i) => (
+                <li key={i} className="group px-4 py-3 transition-colors hover:bg-ink-900">
+                  <p className="flex items-center gap-2 font-mono text-[9px] tracking-[0.14em] text-paper-300/45 uppercase">
+                    <span className="rounded-[2px] bg-amber-500/15 px-1 py-0.5 font-bold text-amber-400">{a.tag}</span>
+                    {a.ts} PHT
+                  </p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-paper-300/85 transition-colors group-hover:text-paper-100">{a.text}</p>
                 </li>
               ))}
             </ul>

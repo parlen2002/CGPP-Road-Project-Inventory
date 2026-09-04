@@ -179,6 +179,50 @@ body {
 /* keep leaflet bottom controls above the coordinate probe bar */
 .leaflet-container .leaflet-bottom { bottom: 28px; }
 
+/* ---------- completion slider ---------- */
+input[type="range"].rpis-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: ew-resize;
+}
+.rpis-slider::-webkit-slider-runnable-track {
+  height: 9px;
+  border-radius: 2px;
+  background: var(--track, #1e372a);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+.rpis-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 17px;
+  height: 17px;
+  margin-top: -5px;
+  background: #ffc24d;
+  border: 2px solid #07110c;
+  border-radius: 3px;
+  box-shadow: 0 0 0 3px rgba(255, 194, 77, 0.28);
+  transition: transform 0.15s ease;
+}
+.rpis-slider:active::-webkit-slider-thumb,
+.rpis-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+.rpis-slider::-moz-range-track {
+  height: 9px;
+  border-radius: 2px;
+  background: var(--track, #1e372a);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+.rpis-slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  background: #ffc24d;
+  border: 2px solid #07110c;
+  border-radius: 3px;
+}
+
 /* ---------- misc ---------- */
 .tabular { font-variant-numeric: tabular-nums; }
 .notch {
