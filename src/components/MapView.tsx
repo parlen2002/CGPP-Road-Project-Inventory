@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap, useMapEvents, ScaleControl, Tooltip } from "react-leaflet";
 import type { Road } from "../data/roads";
 import { barangayCentroids } from "../data/roads";
-import { statusOf, typeShort, fmtPesoM } from "../data/registry";
+import { statusOf, typeShort, fmtPesoM, projectPoint, barangayLabel } from "../data/registry";
 import { useStore } from "../state/store";
 import { conditionMeta, classMeta, fmtCoord, prefersReduced } from "./ui";
 import { IconCrosshair, IconCompass, IconPlus } from "./icons";
@@ -65,15 +65,17 @@ export default function MapView({ focus, roads, onLocate }: {
           records.map((p) => {
             const meta = statusOf(p);
             const impl = contractors.find((c) => c.id === p.implementorId);
+            const pt = projectPoint(p);
+            const ev = p.location.evidence;
             return (
               <CircleMarker
                 key={p.id}
-                center={[p.location.lat, p.location.lng]}
+                center={pt}
                 radius={8}
-                pathOptions={{ color: meta.color, weight: 2.5, fillColor: meta.color, fillOpacity: 0.28 }}
+                pathOptions={{ color: meta.color, weight: 2.5, fillColor: meta.color, fillOpacity: 0.28, dashArray: ev ? undefined : "2 3" }}
               >
                 {p.percent < 100 && p.percent > 0 && (
-                  <CircleMarker center={[p.location.lat, p.location.lng]} radius={13} interactive={false} pathOptions={{ color: meta.ring, weight: 1.5, fillOpacity: 0, dashArray: "3 5" }} />
+                  <CircleMarker center={pt} radius={13} interactive={false} pathOptions={{ color: meta.ring, weight: 1.5, fillOpacity: 0, dashArray: "3 5" }} />
                 )}
                 <Tooltip className="rpis-tip" direction="top" offset={[0, -8]}>
                   {p.id} · {p.name.length > 34 ? p.name.slice(0, 34) + "…" : p.name}
@@ -96,8 +98,8 @@ export default function MapView({ focus, roads, onLocate }: {
                       <span style={{ color: "#e9efe4", textAlign: "right" }}>{p.linearLength.toLocaleString()} m</span>
                       <span style={{ color: "#7d9183" }}>CONTRACTED</span>
                       <span style={{ color: "#e9efe4", textAlign: "right" }}>{fmtPesoM(p.contractedAmount)}</span>
-                      <span style={{ color: "#7d9183" }}>SOURCE</span>
-                      <span style={{ color: "#ffc24d", textAlign: "right" }}>{p.location.source}</span>
+                      <span style={{ color: "#7d9183" }}>BARANGAYS</span>
+                      <span style={{ color: "#ffc24d", textAlign: "right" }}>{barangayLabel(p)}</span>
                     </div>
                     <div style={{ marginTop: 10 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 9, color: "#9db8a6", textTransform: "uppercase", letterSpacing: "0.1em" }}>
@@ -109,7 +111,8 @@ export default function MapView({ focus, roads, onLocate }: {
                       </div>
                     </div>
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: 8.5, color: "#7d9183", marginTop: 10, letterSpacing: "0.06em" }}>
-                      STATION {fmtCoord(p.location.lat)}N · {fmtCoord(p.location.lng)}E — {p.location.ref}
+                      {ev ? <>PINNED VIA {ev.source.toUpperCase()} — {ev.ref}</> : <>PIN AT BARANGAY CENTROID — NO FIELD CAPTURE YET</>}
+                      {" · "}{fmtCoord(pt[0])}N {fmtCoord(pt[1])}E
                     </p>
                   </div>
                 </Popup>

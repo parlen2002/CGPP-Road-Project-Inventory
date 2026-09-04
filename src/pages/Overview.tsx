@@ -4,7 +4,7 @@ import { PageHeader, Reveal, CornerTicks, CountUp, conditionMeta } from "../comp
 import { roads, networkByYear, totalNetworkKm, pavedPct, barangayCount, type Road } from "../data/roads";
 import {
   statusOf, STATUS_META, STATUS_LABELS, typeShort, fmtPesoM, activityFeed,
-  PROJECT_TYPES, TYPE_COLORS,
+  PROJECT_TYPES, TYPE_COLORS, projectPoint,
 } from "../data/registry";
 import { useStore } from "../state/store";
 import { Donut, HBars, StackedBar, AreaChart } from "../components/charts";
@@ -148,7 +148,7 @@ export default function Overview({ focus, onLocate, onOpenInventory }: {
                   return (
                     <li key={p.id}>
                       <button
-                        onClick={() => onLocate([p.location.lat, p.location.lng], 15)}
+                        onClick={() => onLocate(projectPoint(p), 15)}
                         className="group grid w-full cursor-pointer grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-3 text-left transition-colors hover:bg-ink-900/[0.04] sm:grid-cols-[1fr_120px_86px_auto]"
                       >
                         <span className="min-w-0">

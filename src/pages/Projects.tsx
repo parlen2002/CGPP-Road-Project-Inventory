@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   PROJECT_TYPES, STATUS_LABELS, STATUS_META, statusOf, typeShort,
-  fmtPesoM, fmtDate, durationOf,
+  fmtPesoM, fmtDate, durationOf, projectPoint, barangayLabel, hasEvidence,
   type ProjectRecord, type Contractor, type Engineer, type StatusLabel,
 } from "../data/registry";
 import { useStore, setPercent, deleteRecord, deleteContractor, deleteEngineer } from "../state/store";
@@ -87,7 +87,7 @@ export default function Projects({ onLocate, onOpenRoad }: {
     const head = [
       "project_id", "name", "type", "mode_of_implementation", "source_of_fund", "object_account_code",
       "file_folder_no", "implementor_id", "implementor_name", "incharge_id", "incharge_name",
-      "latitude", "longitude", "location_source", "location_ref", "linear_length_m",
+      "barangays", "pin_latitude", "pin_longitude", "evidence_source", "evidence_ref", "linear_length_m",
       "contracted_amount", "actual_amount", "bid_year", "contracted_start", "contracted_completion",
       "actual_start", "actual_completion", "actual_duration", "percent_completion", "status", "notes",
     ].join(",");
@@ -97,7 +97,10 @@ export default function Projects({ onLocate, onOpenRoad }: {
       return [
         r.id, `"${r.name}"`, r.type, r.mode, `"${r.fund}"`, r.objectCode, r.folderNo,
         r.implementorId, `"${impl}"`, r.inchargeId, `"${engr}"`,
-        r.location.lat, r.location.lng, r.location.source, r.location.ref, r.linearLength,
+        `"${r.location.barangays.join("; ")}"`,
+        r.location.evidence?.lat ?? "", r.location.evidence?.lng ?? "",
+        r.location.evidence?.source ?? "none", r.location.evidence?.ref ?? "",
+        r.linearLength,
         r.contractedAmount, r.actualAmount, r.bidYear, r.contractedStart, r.contractedCompletion,
         r.actualStart ?? "", r.actualCompletion ?? "", `"${durationOf(r)}"`, r.percent,
         statusOf(r).label, `"${r.notes.replace(/"/g, "'")}"`,
@@ -219,8 +222,8 @@ export default function Projects({ onLocate, onOpenRoad }: {
               <table className="w-full min-w-[1480px] border-collapse">
                 <thead className="bg-ink-900 text-paper-300">
                   <tr className="[&>th]:border-b-2 [&>th]:border-amber-500/70">
-                    {["Project / Folder", "Type", "Mode", "Implementor", "In-Charge", "Lin. (m)", "Contracted", "Actual", "Bid", "Contracted Window", "Actual Window", "Duration", "Status · % Completion (drag)"].map((h, i) => (
-                      <th key={h} className={`px-3 py-2.5 font-mono text-[9.5px] font-semibold tracking-[0.14em] uppercase ${i >= 5 && i <= 7 ? "text-right" : "text-left"}`}>{h}</th>
+                    {["Project / Folder", "Type", "Mode", "Implementor", "In-Charge", "Location (Brgy)", "Lin. (m)", "Contracted", "Actual", "Bid", "Contracted Window", "Actual Window", "Duration", "Status · % Completion (drag)"].map((h, i) => (
+                      <th key={h} className={`px-3 py-2.5 font-mono text-[9.5px] font-semibold tracking-[0.14em] uppercase ${i >= 6 && i <= 8 ? "text-right" : "text-left"}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -235,7 +238,7 @@ export default function Projects({ onLocate, onOpenRoad }: {
                           <div className="flex items-center gap-1.5">
                             <span className="shrink-0 font-mono text-[9.5px] font-bold tracking-wide text-teal-500">{r.id}</span>
                             <button
-                              onClick={(e) => { e.stopPropagation(); onLocate([r.location.lat, r.location.lng], 15); }}
+                              onClick={(e) => { e.stopPropagation(); onLocate(projectPoint(r), hasEvidence(r) ? 15 : 13); }}
                               title="Locate on map"
                               className="shrink-0 cursor-pointer text-text-400 opacity-0 transition-all group-hover:opacity-100 hover:text-amber-600"
                             >
@@ -293,6 +296,14 @@ export default function Projects({ onLocate, onOpenRoad }: {
                             </button>
                           )}
                         </td>
+                        <td className="max-w-[150px] px-3 py-3">
+                          <p className="truncate font-mono text-[10.5px] font-semibold text-ink-900" title={r.location.barangays.join(", ")}>
+                            {barangayLabel(r)}
+                          </p>
+                          <p className="font-mono text-[8.5px] tracking-wider text-text-400 uppercase">
+                            {hasEvidence(r) ? `${r.location.evidence!.source} pinpoint` : "centroid pin"}
+                          </p>
+                        </td>
                         <td className="px-3 py-3 text-right font-mono text-[12px] font-semibold text-ink-900 tabular">{r.linearLength.toLocaleString()}</td>
                         <td className="px-3 py-3 text-right font-mono text-[12px] font-semibold text-ink-900 tabular">{fmtPesoM(r.contractedAmount)}</td>
                         <td className="px-3 py-3 text-right font-mono text-[11.5px] text-text-600 tabular">{r.actualAmount ? fmtPesoM(r.actualAmount) : "—"}</td>
@@ -318,7 +329,7 @@ export default function Projects({ onLocate, onOpenRoad }: {
                     );
                   })}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={13} className="px-4 py-10 text-center font-mono text-[12px] text-text-400">— 0 records match the current filters —</td></tr>
+                    <tr><td colSpan={14} className="px-4 py-10 text-center font-mono text-[12px] text-text-400">— 0 records match the current filters —</td></tr>
                   )}
                 </tbody>
               </table>

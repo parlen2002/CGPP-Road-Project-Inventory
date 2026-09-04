@@ -1,5 +1,5 @@
 import {
-  statusOf, typeShort, fmtPeso, fmtPesoM, fmtDate, durationOf,
+  statusOf, typeShort, fmtPeso, fmtPesoM, fmtDate, durationOf, projectPoint,
   type ProjectRecord,
 } from "../data/registry";
 import { useStore, setPercent, setActualDates } from "../state/store";
@@ -217,22 +217,48 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             </div>
           </div>
 
-          {/* location */}
+          {/* location — barangay-based */}
           <div className="relative mt-4 overflow-hidden rounded-[3px] border-2 border-ink-800 bg-ink-950 p-4">
             <div className="bg-graticule absolute inset-0" />
             <div className="relative">
               <p className="flex items-center gap-2 font-mono text-[9px] tracking-[0.18em] text-paper-300/60 uppercase">
-                <IconCamera size={13} /> Location · captured from {record.location.source}
+                <IconPin size={13} /> Location · barangay coverage
+                {record.location.barangays.length > 1 && (
+                  <span className="rounded-[3px] bg-amber-500/15 px-1.5 py-0.5 font-bold text-amber-400">MULTI · {record.location.barangays.length} BRGYS</span>
+                )}
               </p>
-              <p className="mt-2 font-mono text-[13px] font-semibold text-paper-100">
-                {record.location.lat.toFixed(5)}° N, {record.location.lng.toFixed(5)}° E
-              </p>
-              <p className="mt-1 font-mono text-[10px] text-amber-400/90">
-                {record.location.ref}
-                <span className="text-paper-300/50"> → ST_Point(lng, lat) · SRID 4326</span>
-              </p>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {record.location.barangays.map((b) => (
+                  <span key={b} className="rounded-[3px] border border-amber-500/50 bg-amber-500/10 px-2 py-1 font-mono text-[10px] font-semibold tracking-wider text-amber-300 uppercase">
+                    Brgy. {b}
+                  </span>
+                ))}
+              </div>
+
+              {record.location.evidence ? (
+                <div className="mt-3 rounded-[3px] border border-pine-500/50 bg-pine-600/15 p-3">
+                  <p className="flex items-center gap-2 font-mono text-[9px] font-bold tracking-[0.16em] text-pine-400 uppercase">
+                    <IconCamera size={12} /> Supporting evidence · {record.location.evidence.source} — pinpoints the project
+                  </p>
+                  <p className="mt-1.5 font-mono text-[13px] font-semibold text-paper-100">
+                    {record.location.evidence.lat.toFixed(5)}° N, {record.location.evidence.lng.toFixed(5)}° E
+                  </p>
+                  <p className="mt-0.5 font-mono text-[10px] text-paper-300/60">
+                    {record.location.evidence.ref}
+                    <span className="text-pine-400/80"> → ST_Point(lng, lat) · SRID 4326</span>
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-[3px] border border-dashed border-ink-600 p-3">
+                  <p className="font-mono text-[9.5px] font-bold tracking-[0.14em] text-paper-300/70 uppercase">No field capture attached</p>
+                  <p className="mt-1 font-mono text-[9.5px] leading-relaxed text-paper-300/50">
+                    Map pin falls on the barangay centroid{record.location.barangays.length > 1 ? "s (averaged)" : ""}. Attach a KML, GPX or geotagged image to pinpoint the project accurately.
+                  </p>
+                </div>
+              )}
+
               <button
-                onClick={() => onLocate([record.location.lat, record.location.lng], 15)}
+                onClick={() => onLocate(projectPoint(record), record.location.evidence ? 15 : 13)}
                 className="group mt-3 inline-flex cursor-pointer items-center gap-2 rounded-[3px] bg-amber-500 px-3 py-2 font-mono text-[10px] font-bold tracking-[0.16em] text-ink-950 uppercase transition-colors hover:bg-amber-400"
               >
                 <IconPin size={13} /> Zoom on map console
