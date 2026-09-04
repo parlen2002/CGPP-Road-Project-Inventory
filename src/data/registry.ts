@@ -158,7 +158,7 @@ export const hasEvidence = (r: ProjectRecord) => r.location.evidence !== null;
 export function projectPoint(r: ProjectRecord): [number, number] {
   const ev = r.location.evidence;
   if (ev) return [ev.lat, ev.lng];
-  const pts = r.location.barangays
+  const pts = (r.location.barangays ?? [])
     .map((b) => BARANGAY_POINTS[b])
     .filter((p): p is [number, number] => Array.isArray(p));
   if (!pts.length) return [9.7389, 118.739];
@@ -170,7 +170,7 @@ export function projectPoint(r: ProjectRecord): [number, number] {
 
 /** Compact label: "Brgy. X" or "Brgy. X +2" for multi-barangay coverage. */
 export function barangayLabel(r: ProjectRecord): string {
-  const [first, ...rest] = r.location.barangays;
+  const [first, ...rest] = r.location.barangays ?? [];
   return `Brgy. ${first ?? "—"}${rest.length ? ` +${rest.length}` : ""}`;
 }
 

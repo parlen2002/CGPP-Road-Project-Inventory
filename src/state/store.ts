@@ -10,14 +10,19 @@ export interface Snapshot {
   engineers: Engineer[];
 }
 
-const KEY = "rpis-store-v2";
+const KEY = "rpis-store-v3"; // v3 = barangay-based location model; older snapshots are reseeded
 
 function load(): Snapshot {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Snapshot;
-      if (p && Array.isArray(p.records) && p.records.length) return p;
+      // validate the location shape so pre-migration snapshots can never crash the map
+      if (
+        p && Array.isArray(p.records) && p.records.length &&
+        Array.isArray(p.records[0]?.location?.barangays) &&
+        Array.isArray(p.contractors) && Array.isArray(p.engineers)
+      ) return p;
     }
   } catch { /* corrupted storage → fall back to seed */ }
   return { records: seedRecords, contractors: seedContractors, engineers: seedEngineers };
