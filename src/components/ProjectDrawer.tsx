@@ -4,7 +4,7 @@ import {
 } from "../data/registry";
 import { useStore, setPercent, setActualDates } from "../state/store";
 import { CornerTicks } from "./ui";
-import { IconClose, IconPin, IconArrow, IconCamera, IconUser, IconCalendar } from "./icons";
+import { IconClose, IconPin, IconArrow, IconCamera, IconUser, IconCalendar, IconEdit, IconTrash } from "./icons";
 
 function KV({ k, v, mono = true }: { k: string; v: React.ReactNode; mono?: boolean }) {
   return (
@@ -15,10 +15,12 @@ function KV({ k, v, mono = true }: { k: string; v: React.ReactNode; mono?: boole
   );
 }
 
-export default function ProjectDrawer({ record, onClose, onLocate }: {
+export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDelete }: {
   record: ProjectRecord | null;
   onClose: () => void;
   onLocate: (point: [number, number], zoom?: number) => void;
+  onEdit?: (r: ProjectRecord) => void;
+  onDelete?: (r: ProjectRecord) => void;
 }) {
   const { contractors, engineers } = useStore();
   const impl = record ? contractors.find((c) => c.id === record.implementorId) : undefined;
@@ -47,6 +49,21 @@ export default function ProjectDrawer({ record, onClose, onLocate }: {
               <p className="mt-1.5 font-mono text-[10px] text-paper-300/60 uppercase">
                 {record.folderNo} · UACS {record.objectCode}
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => onEdit?.(record)}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-[3px] bg-amber-500 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.14em] text-ink-950 uppercase transition-all hover:bg-amber-400 hover:shadow-[0_4px_14px_rgba(255,194,77,0.35)]"
+                >
+                  <IconEdit size={12} /> Edit record
+                </button>
+                <button
+                  onClick={() => onDelete?.(record)}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-coral-500/60 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.14em] text-coral-400 uppercase transition-all hover:bg-coral-600 hover:text-paper-100"
+                >
+                  <IconTrash size={12} /> Delete
+                </button>
+                <span className="ml-auto font-mono text-[8.5px] tracking-[0.16em] text-paper-300/40 uppercase">row is persisted</span>
+              </div>
             </div>
             <button onClick={onClose} className="shrink-0 cursor-pointer p-1.5 text-paper-300/60 transition-colors hover:text-amber-400"><IconClose size={18} /></button>
           </div>
@@ -164,7 +181,14 @@ export default function ProjectDrawer({ record, onClose, onLocate }: {
                   <p className="mt-2 font-mono text-[10px] text-text-600">{impl.contactPerson} · {impl.phone}</p>
                   <p className="font-mono text-[10px] text-text-400">{impl.address}</p>
                 </>
-              ) : <p className="font-mono text-[11px] text-text-400">Profile not found in registry.</p>}
+              ) : (
+                <div className="rounded-[3px] border border-coral-500/50 bg-coral-500/10 px-2.5 py-2">
+                  <p className="font-mono text-[9.5px] font-bold tracking-[0.14em] text-coral-600 uppercase">⚠ Implementor unlinked</p>
+                  <button onClick={() => onEdit?.(record)} className="mt-1 cursor-pointer font-mono text-[10px] text-coral-600 underline underline-offset-2 hover:text-coral-500">
+                    Open editor to relink implementor →
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="rounded-[3px] border border-line-300 bg-paper-100 p-3.5">
@@ -182,7 +206,14 @@ export default function ProjectDrawer({ record, onClose, onLocate }: {
                     <p className="font-mono text-[9.5px] text-text-400">PRC {engr.prc} · {engr.email}</p>
                   </div>
                 </div>
-              ) : <p className="font-mono text-[11px] text-text-400">Profile not found in registry.</p>}
+              ) : (
+                <div className="rounded-[3px] border border-coral-500/50 bg-coral-500/10 px-2.5 py-2">
+                  <p className="font-mono text-[9.5px] font-bold tracking-[0.14em] text-coral-600 uppercase">⚠ In-charge unlinked</p>
+                  <button onClick={() => onEdit?.(record)} className="mt-1 cursor-pointer font-mono text-[10px] text-coral-600 underline underline-offset-2 hover:text-coral-500">
+                    Open editor to relink in-charge →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

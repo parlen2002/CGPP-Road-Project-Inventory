@@ -55,6 +55,14 @@ export function addRecord(rec: ProjectRecord) {
   mutate({ ...snapshot, records: [rec, ...snapshot.records] });
 }
 
+export function updateRecord(id: string, patch: Partial<Omit<ProjectRecord, "id">>) {
+  mutate({ ...snapshot, records: snapshot.records.map((r) => (r.id === id ? { ...r, ...patch } : r)) });
+}
+
+export function deleteRecord(id: string) {
+  mutate({ ...snapshot, records: snapshot.records.filter((r) => r.id !== id) });
+}
+
 export function addContractor(c: Omit<Contractor, "id">): string {
   const id = nextId("CTR", snapshot.contractors.map((x) => x.id));
   mutate({ ...snapshot, contractors: [...snapshot.contractors, { ...c, id }] });
@@ -65,6 +73,36 @@ export function addEngineer(e: Omit<Engineer, "id">): string {
   const id = nextId("ENG", snapshot.engineers.map((x) => x.id));
   mutate({ ...snapshot, engineers: [...snapshot.engineers, { ...e, id }] });
   return id;
+}
+
+export function updateContractor(id: string, patch: Partial<Omit<Contractor, "id">>) {
+  mutate({ ...snapshot, contractors: snapshot.contractors.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+}
+
+/** Removes the contractor; any projects that reference it are set to UNLINKED so the ledger stays valid. */
+export function deleteContractor(id: string): number {
+  const linked = snapshot.records.filter((r) => r.implementorId === id).length;
+  mutate({
+    ...snapshot,
+    contractors: snapshot.contractors.filter((c) => c.id !== id),
+    records: snapshot.records.map((r) => (r.implementorId === id ? { ...r, implementorId: "" } : r)),
+  });
+  return linked;
+}
+
+export function updateEngineer(id: string, patch: Partial<Omit<Engineer, "id">>) {
+  mutate({ ...snapshot, engineers: snapshot.engineers.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
+}
+
+/** Removes the employee; any projects they are in-charge of are set to UNLINKED. */
+export function deleteEngineer(id: string): number {
+  const linked = snapshot.records.filter((r) => r.inchargeId === id).length;
+  mutate({
+    ...snapshot,
+    engineers: snapshot.engineers.filter((e) => e.id !== id),
+    records: snapshot.records.map((r) => (r.inchargeId === id ? { ...r, inchargeId: "" } : r)),
+  });
+  return linked;
 }
 
 export function nextId(prefix: string, existing: string[]): string {

@@ -154,6 +154,27 @@ export const IconSort = (p: P) => (
   </svg>
 );
 
+export const IconEdit = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 20h4L19.3 8.7a2.12 2.12 0 0 0-3-3L5 17l-1 3Z" />
+    <path d="m13.8 7.2 3 3" />
+  </svg>
+);
+
+export const IconTrash = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 7h16M9.2 7V4.8h5.6V7M6.3 7l1 13.2h9.4L17.7 7" />
+    <path d="M10 11v6M14 11v6" />
+  </svg>
+);
+
+export const IconSave = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5 4h11l3.5 3.5V20H5V4Z" />
+    <path d="M8 4v5h7V4M8 20v-6h8v6" />
+  </svg>
+);
+
 export const IconPlus = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 5v14M5 12h14" />

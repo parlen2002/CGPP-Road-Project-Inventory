@@ -2,13 +2,27 @@ import { useMemo, useState } from "react";
 import {
   PROJECT_TYPES, STATUS_LABELS, STATUS_META, statusOf, typeShort,
   fmtPesoM, fmtDate, durationOf,
-  type ProjectRecord, type StatusLabel,
+  type ProjectRecord, type Contractor, type Engineer, type StatusLabel,
 } from "../data/registry";
-import { useStore, setPercent } from "../state/store";
+import { useStore, setPercent, deleteRecord, deleteContractor, deleteEngineer } from "../state/store";
 import { PageHeader, Reveal, CornerTicks, CountUp } from "../components/ui";
-import { IconPlus, IconDownload, IconSearch, IconUser, IconPin } from "../components/icons";
+import { IconPlus, IconDownload, IconSearch, IconPin, IconEdit, IconTrash } from "../components/icons";
 import { ProjectForm, ContractorForm, EngineerForm } from "../components/projectForms";
 import ProjectDrawer from "../components/ProjectDrawer";
+import ConfirmDialog from "../components/confirm";
+import { toast } from "../components/toast";
+
+type ModalState =
+  | { kind: "project"; editing: ProjectRecord | null }
+  | { kind: "contractor"; editing: Contractor | null }
+  | { kind: "engineer"; editing: Engineer | null }
+  | null;
+
+type DeleteTarget =
+  | { kind: "record"; id: string }
+  | { kind: "contractor"; id: string }
+  | { kind: "engineer"; id: string }
+  | null;
 
 type Tab = "ledger" | "implementors" | "personnel";
 
@@ -27,7 +41,26 @@ export default function Projects({ onLocate, onOpenRoad }: {
   const [modeF, setModeF] = useState("All");
   const [implF, setImplF] = useState("All");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [modal, setModal] = useState<null | "project" | "contractor" | "engineer">(null);
+  const [modal, setModal] = useState<ModalState>(null);
+  const [del, setDel] = useState<DeleteTarget>(null);
+
+  const confirmDelete = () => {
+    if (!del) return;
+    if (del.kind === "record") {
+      const r = records.find((x) => x.id === del.id);
+      deleteRecord(del.id);
+      if (openId === del.id) setOpenId(null);
+      toast(r ? `${r.id} — ${r.name}` : del.id, "deleted", "row removed from project_records");
+    } else if (del.kind === "contractor") {
+      const c = contractors.find((x) => x.id === del.id);
+      const linked = deleteContractor(del.id);
+      toast(c ? `${c.id} — ${c.name}` : del.id, "deleted", linked ? `implementor deleted · ${linked} link(s) set to UNLINKED` : "contractor profile deleted");
+    } else {
+      const e = engineers.find((x) => x.id === del.id);
+      const linked = deleteEngineer(del.id);
+      toast(e ? `${e.id} — ${e.name}` : del.id, "deleted", linked ? `employee deleted · ${linked} assignment(s) set to UNLINKED` : "employee profile deleted");
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -124,7 +157,7 @@ export default function Projects({ onLocate, onOpenRoad }: {
           <TabBtn id="implementors" label="Implementors" count={contractors.length} />
           <TabBtn id="personnel" label="In-Charge Personnel" count={engineers.length} />
           <button
-            onClick={() => setModal(tab === "implementors" ? "contractor" : tab === "personnel" ? "engineer" : "project")}
+            onClick={() => setModal(tab === "implementors" ? { kind: "contractor", editing: null } : tab === "personnel" ? { kind: "engineer", editing: null } : { kind: "project", editing: null })}
             className="group ml-auto flex cursor-pointer items-center gap-2 border-l-2 border-ink-800 bg-amber-500 px-4 font-mono text-[10.5px] font-bold tracking-[0.16em] text-ink-950 uppercase transition-colors hover:bg-amber-400 sm:px-6"
           >
             <IconPlus size={14} className="transition-transform group-hover:rotate-90 duration-300" />
@@ -199,7 +232,7 @@ export default function Projects({ onLocate, onOpenRoad }: {
                     return (
                       <tr key={r.id} onClick={() => setOpenId(r.id)} className="group cursor-pointer transition-colors hover:bg-ink-900/[0.045]">
                         <td className="max-w-[300px] px-3 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className="shrink-0 font-mono text-[9.5px] font-bold tracking-wide text-teal-500">{r.id}</span>
                             <button
                               onClick={(e) => { e.stopPropagation(); onLocate([r.location.lat, r.location.lng], 15); }}
@@ -208,6 +241,20 @@ export default function Projects({ onLocate, onOpenRoad }: {
                             >
                               <IconPin size={12} />
                             </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setModal({ kind: "project", editing: r }); }}
+                              title="Edit record"
+                              className="shrink-0 cursor-pointer text-text-400 opacity-0 transition-all group-hover:opacity-100 hover:text-pine-600"
+                            >
+                              <IconEdit size={12} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDel({ kind: "record", id: r.id }); }}
+                              title="Delete record"
+                              className="shrink-0 cursor-pointer text-text-400 opacity-0 transition-all group-hover:opacity-100 hover:text-coral-600"
+                            >
+                              <IconTrash size={12} />
+                            </button>
                           </div>
                           <p className="mt-0.5 truncate text-[13px] font-semibold text-ink-900 group-hover:text-pine-700">{r.name}</p>
                           <p className="font-mono text-[9px] tracking-wider text-text-400 uppercase">{r.folderNo} · {r.fund}</p>
@@ -215,12 +262,36 @@ export default function Projects({ onLocate, onOpenRoad }: {
                         <td className="px-3 py-3"><span className="rounded-[3px] border border-ink-800/25 bg-ink-900/[0.06] px-1.5 py-0.5 font-mono text-[9.5px] font-bold tracking-wider uppercase">{typeShort[r.type]}</span></td>
                         <td className="px-3 py-3 font-mono text-[10px] text-text-600 uppercase">{r.mode === "By Contract" ? "Contract" : "Admin"}</td>
                         <td className="max-w-[170px] px-3 py-3">
-                          <p className="truncate text-[11.5px] font-semibold text-ink-900">{impl?.name ?? "—"}</p>
-                          <p className="font-mono text-[9px] text-text-400 uppercase">PCAB {impl?.pcab ?? "—"}</p>
+                          {r.implementorId ? (
+                            <>
+                              <p className="truncate text-[11.5px] font-semibold text-ink-900">{impl?.name ?? "—"}</p>
+                              <p className="font-mono text-[9px] text-text-400 uppercase">PCAB {impl?.pcab ?? "—"}</p>
+                            </>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setModal({ kind: "project", editing: r }); }}
+                              className="cursor-pointer rounded-[3px] border border-coral-500/60 bg-coral-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.12em] text-coral-600 uppercase transition-colors hover:bg-coral-600 hover:text-paper-100"
+                              title="Implementor was deleted — click to relink"
+                            >
+                              ⚠ Unlinked · relink
+                            </button>
+                          )}
                         </td>
                         <td className="max-w-[160px] px-3 py-3">
-                          <p className="truncate text-[11.5px] font-semibold text-ink-900">{engr?.name ?? "—"}</p>
-                          <p className="font-mono text-[9px] text-text-400 uppercase">{engr?.position ?? "—"}</p>
+                          {r.inchargeId ? (
+                            <>
+                              <p className="truncate text-[11.5px] font-semibold text-ink-900">{engr?.name ?? "—"}</p>
+                              <p className="font-mono text-[9px] text-text-400 uppercase">{engr?.position ?? "—"}</p>
+                            </>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setModal({ kind: "project", editing: r }); }}
+                              className="cursor-pointer rounded-[3px] border border-coral-500/60 bg-coral-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.12em] text-coral-600 uppercase transition-colors hover:bg-coral-600 hover:text-paper-100"
+                              title="In-charge was deleted — click to relink"
+                            >
+                              ⚠ Unlinked · relink
+                            </button>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-[12px] font-semibold text-ink-900 tabular">{r.linearLength.toLocaleString()}</td>
                         <td className="px-3 py-3 text-right font-mono text-[12px] font-semibold text-ink-900 tabular">{fmtPesoM(r.contractedAmount)}</td>
@@ -282,6 +353,20 @@ export default function Projects({ onLocate, onOpenRoad }: {
                 </div>
                 <p className="mt-3 font-mono text-[10.5px] text-text-600">{c.contactPerson} · {c.phone}</p>
                 <p className="font-mono text-[10px] text-text-400">{c.address} · {c.email}</p>
+                <div className="mt-3 flex gap-2 border-t border-line-300 pt-3">
+                  <button
+                    onClick={() => setModal({ kind: "contractor", editing: c })}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-ink-800 px-2.5 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.12em] text-ink-900 uppercase transition-all hover:bg-ink-900 hover:text-amber-400"
+                  >
+                    <IconEdit size={11} /> Edit profile
+                  </button>
+                  <button
+                    onClick={() => setDel({ kind: "contractor", id: c.id })}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-coral-500/50 px-2.5 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.12em] text-coral-600 uppercase transition-all hover:bg-coral-600 hover:text-paper-100"
+                  >
+                    <IconTrash size={11} /> Delete
+                  </button>
+                </div>
                 {jobs.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1">
                     {jobs.slice(0, 4).map((j) => (
@@ -324,6 +409,20 @@ export default function Projects({ onLocate, onOpenRoad }: {
                 </div>
                 <p className="mt-3 font-mono text-[10px] text-paper-300/60">{e.unit} · PRC {e.prc}</p>
                 <p className="font-mono text-[10px] text-paper-300/40">{e.email} · {e.phone}</p>
+                <div className="mt-3 flex gap-2 border-t border-ink-700 pt-3">
+                  <button
+                    onClick={() => setModal({ kind: "engineer", editing: e })}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-amber-500/50 px-2.5 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.12em] text-amber-400 uppercase transition-all hover:bg-amber-500 hover:text-ink-950"
+                  >
+                    <IconEdit size={11} /> Edit profile
+                  </button>
+                  <button
+                    onClick={() => setDel({ kind: "engineer", id: e.id })}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-coral-500/40 px-2.5 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.12em] text-coral-400 uppercase transition-all hover:bg-coral-600 hover:text-paper-100"
+                  >
+                    <IconTrash size={11} /> Delete
+                  </button>
+                </div>
                 {active.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1">
                     {active.slice(0, 3).map((j) => (
@@ -340,16 +439,66 @@ export default function Projects({ onLocate, onOpenRoad }: {
       )}
 
       {/* drawer + modals */}
-      <ProjectDrawer record={open} onClose={() => setOpenId(null)} onLocate={onLocate} />
-      {modal === "project" && <ProjectForm onClose={() => setModal(null)} />}
-      {modal === "contractor" && <ContractorForm onClose={() => setModal(null)} />}
-      {modal === "engineer" && <EngineerForm onClose={() => setModal(null)} />}
+      <ProjectDrawer
+        record={open}
+        onClose={() => setOpenId(null)}
+        onLocate={onLocate}
+        onEdit={(r) => { setOpenId(null); setModal({ kind: "project", editing: r }); }}
+        onDelete={(r) => { setOpenId(null); setDel({ kind: "record", id: r.id }); }}
+      />
+      {modal?.kind === "project" && <ProjectForm onClose={() => setModal(null)} editing={modal.editing} />}
+      {modal?.kind === "contractor" && <ContractorForm onClose={() => setModal(null)} editing={modal.editing} />}
+      {modal?.kind === "engineer" && <EngineerForm onClose={() => setModal(null)} editing={modal.editing} />}
 
-      {open?.roadId && (
-        <button
-          onClick={() => onOpenRoad(open.roadId!)}
-          className="hidden"
-          aria-hidden
+      {del && (
+        <ConfirmDialog
+          title={del.kind === "record" ? "Delete project record" : del.kind === "contractor" ? "Delete contractor" : "Delete employee"}
+          sheet={del.kind === "record" ? "project_records · DELETE" : del.kind === "contractor" ? "contractors_contractor · DELETE" : "employees_employee · DELETE"}
+          confirmLabel={
+            del.kind === "record" ? "Delete record"
+              : (del.kind === "contractor"
+                  ? (records.some((r) => r.implementorId === del.id) ? "Delete & unlink" : "Delete contractor")
+                  : (records.some((r) => r.inchargeId === del.id) ? "Delete & unlink" : "Delete employee"))
+          }
+          message={(() => {
+            if (del.kind === "record") {
+              const r = records.find((x) => x.id === del.id);
+              return (
+                <p>
+                  <b className="text-ink-900">{del.id}</b> — “{r?.name}” will be permanently removed from the project
+                  ledger. This write is committed immediately and cannot be undone.
+                </p>
+              );
+            }
+            if (del.kind === "contractor") {
+              const c = contractors.find((x) => x.id === del.id);
+              const n = records.filter((r) => r.implementorId === del.id).length;
+              return (
+                <div>
+                  <p><b className="text-ink-900">{del.id}</b> — {c?.name} will be removed from the implementor registry.</p>
+                  {n > 0 && (
+                    <p className="mt-2 rounded-[3px] border border-coral-500/50 bg-coral-500/10 px-2.5 py-1.5 font-mono text-[10px] tracking-wider text-coral-600 uppercase">
+                      ⚠ {n} project{n > 1 ? "s" : ""} reference this implementor — the implementor field will be set to UNLINKED and must be re-encoded.
+                    </p>
+                  )}
+                </div>
+              );
+            }
+            const e = engineers.find((x) => x.id === del.id);
+            const n = records.filter((r) => r.inchargeId === del.id).length;
+            return (
+              <div>
+                <p><b className="text-ink-900">{del.id}</b> — {e?.name} will be removed from the personnel registry.</p>
+                {n > 0 && (
+                  <p className="mt-2 rounded-[3px] border border-coral-500/50 bg-coral-500/10 px-2.5 py-1.5 font-mono text-[10px] tracking-wider text-coral-600 uppercase">
+                    ⚠ {n} project{n > 1 ? "s" : ""} list this employee as in-charge — the assignment will be set to UNLINKED.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+          onConfirm={confirmDelete}
+          onClose={() => setDel(null)}
         />
       )}
     </div>

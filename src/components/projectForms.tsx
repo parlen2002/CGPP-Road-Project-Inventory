@@ -2,25 +2,37 @@ import { useState, type ReactNode } from "react";
 import {
   PROJECT_TYPES, MODES, FUNDS, TYPE_OBJECT_CODE, PCAB_CATEGORIES,
   ENGINEER_POSITIONS, ENGINEER_UNITS, LOC_SOURCES,
-  type ProjectType, type ModeOfImplementation, type LocationSource, type ProjectRecord,
+  type ProjectType, type ModeOfImplementation, type LocationSource,
+  type ProjectRecord, type Contractor, type Engineer,
 } from "../data/registry";
-import { useStore, addRecord, addContractor, addEngineer, nextRecordId } from "../state/store";
-import { IconClose, IconPlus } from "./icons";
+import {
+  useStore, addRecord, addContractor, addEngineer,
+  updateRecord, updateContractor, updateEngineer, nextRecordId,
+} from "../state/store";
+import { toast } from "./toast";
+import { IconClose, IconPlus, IconSave, IconEdit } from "./icons";
 
 const inputCls =
   "w-full rounded-[3px] border border-line-400 bg-white/70 px-2.5 py-2 font-mono text-[11.5px] text-ink-900 placeholder:text-text-400/60 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40";
 const labelCls = "mb-1 block font-mono text-[9px] font-semibold tracking-[0.16em] text-text-600 uppercase";
+const btnCls =
+  "cursor-pointer rounded-[3px] bg-ink-900 px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.16em] text-amber-400 uppercase transition-all hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-40";
 
-export function Modal({ title, sheet, onClose, children, wide }: {
-  title: string; sheet: string; onClose: () => void; children: ReactNode; wide?: boolean;
+export function Modal({ title, sheet, onClose, children, wide, tone = "pine" }: {
+  title: string; sheet: string; onClose: () => void; children: ReactNode; wide?: boolean; tone?: "pine" | "amber";
 }) {
   return (
     <div className="anim-fade-in fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-ink-950/60 p-4">
       <div className={`anim-fade-up relative my-6 w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-[4px] border-2 border-ink-800 bg-paper-100 shadow-2xl`}>
         <div className="flex items-center justify-between gap-3 border-b-2 border-ink-800 bg-ink-900 px-5 py-3.5">
-          <div>
-            <p className="font-mono text-[9px] tracking-[0.22em] text-amber-400 uppercase">{sheet}</p>
-            <h3 className="font-display text-2xl leading-none font-bold tracking-wide text-paper-100 uppercase">{title}</h3>
+          <div className="flex items-center gap-3">
+            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-[3px] border ${tone === "amber" ? "border-amber-500 text-amber-400" : "border-pine-400 text-pine-400"}`}>
+              {tone === "amber" ? <IconEdit size={15} /> : <IconPlus size={15} />}
+            </span>
+            <div>
+              <p className="font-mono text-[9px] tracking-[0.22em] text-amber-400 uppercase">{sheet}</p>
+              <h3 className="font-display text-2xl leading-none font-bold tracking-wide text-paper-100 uppercase">{title}</h3>
+            </div>
           </div>
           <button onClick={onClose} className="cursor-pointer p-1.5 text-paper-300/60 transition-colors hover:text-amber-400"><IconClose size={18} /></button>
         </div>
@@ -30,13 +42,30 @@ export function Modal({ title, sheet, onClose, children, wide }: {
   );
 }
 
-/* ─────────────── Contractor encoder (FK target) ─────────────── */
+/* ─────────────── Contractor encoder / editor (FK target) ─────────────── */
 
-export function ContractorForm({ onClose, onCreated }: { onClose: () => void; onCreated?: (id: string) => void }) {
-  const [f, setF] = useState({ name: "", pcab: "A", category: "", address: "", contactPerson: "", phone: "", email: "" });
+export function ContractorForm({ onClose, onCreated, editing }: {
+  onClose: () => void; onCreated?: (id: string) => void; editing?: Contractor | null;
+}) {
+  const [f, setF] = useState(() =>
+    editing
+      ? { name: editing.name, pcab: editing.pcab, category: editing.category, address: editing.address, contactPerson: editing.contactPerson, phone: editing.phone, email: editing.email }
+      : { name: "", pcab: "A", category: "", address: "", contactPerson: "", phone: "", email: "" }
+  );
   const valid = f.name.trim().length > 2;
+  const save = () => {
+    if (editing) {
+      updateContractor(editing.id, f);
+      toast(`${editing.id} — ${f.name}`, "updated", "contractor profile updated");
+    } else {
+      const id = addContractor(f);
+      toast(`${id} — ${f.name}`, "saved", "contractor profile registered");
+      onCreated?.(id);
+    }
+    onClose();
+  };
   return (
-    <Modal title="Encode Contractor" sheet="Registry · contractors_contractor" onClose={onClose}>
+    <Modal title={editing ? "Edit Contractor" : "Encode Contractor"} sheet={`Registry · contractors_contractor · ${editing ? editing.id : "new row"}`} onClose={onClose} tone={editing ? "amber" : "pine"}>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className={labelCls}>Contractor / firm name *</label>
@@ -70,26 +99,41 @@ export function ContractorForm({ onClose, onCreated }: { onClose: () => void; on
         </div>
       </div>
       <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="font-mono text-[9.5px] text-text-400 uppercase">New CTR-### primary key will be issued</p>
-        <button
-          disabled={!valid}
-          onClick={() => onCreated?.(addContractor(f))}
-          className="cursor-pointer rounded-[3px] bg-ink-900 px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.16em] text-amber-400 uppercase transition-all hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Save contractor
+        <p className="font-mono text-[9.5px] text-text-400 uppercase">
+          {editing ? `Updating row ${editing.id} — links in the ledger follow the profile` : "New CTR-### primary key will be issued"}
+        </p>
+        <button disabled={!valid} onClick={save} className={btnCls}>
+          <span className="flex items-center gap-2">{editing ? <IconSave size={13} /> : null}{editing ? "Update contractor" : "Save contractor"}</span>
         </button>
       </div>
     </Modal>
   );
 }
 
-/* ─────────────── Engineer / employee encoder (FK target) ─────────────── */
+/* ─────────────── Engineer / employee encoder / editor (FK target) ─────────────── */
 
-export function EngineerForm({ onClose, onCreated }: { onClose: () => void; onCreated?: (id: string) => void }) {
-  const [f, setF] = useState({ name: "", position: ENGINEER_POSITIONS[3], unit: ENGINEER_UNITS[0], prc: "", email: "", phone: "" });
+export function EngineerForm({ onClose, onCreated, editing }: {
+  onClose: () => void; onCreated?: (id: string) => void; editing?: Engineer | null;
+}) {
+  const [f, setF] = useState(() =>
+    editing
+      ? { name: editing.name, position: editing.position, unit: editing.unit, prc: editing.prc, email: editing.email, phone: editing.phone }
+      : { name: "", position: ENGINEER_POSITIONS[3], unit: ENGINEER_UNITS[0], prc: "", email: "", phone: "" }
+  );
   const valid = f.name.trim().length > 2;
+  const save = () => {
+    if (editing) {
+      updateEngineer(editing.id, f);
+      toast(`${editing.id} — ${f.name}`, "updated", "employee profile updated");
+    } else {
+      const id = addEngineer(f);
+      toast(`${id} — ${f.name}`, "saved", "employee profile registered");
+      onCreated?.(id);
+    }
+    onClose();
+  };
   return (
-    <Modal title="Encode Engineer / Employee" sheet="Registry · employees_employee" onClose={onClose}>
+    <Modal title={editing ? "Edit Engineer / Employee" : "Encode Engineer / Employee"} sheet={`Registry · employees_employee · ${editing ? editing.id : "new row"}`} onClose={onClose} tone={editing ? "amber" : "pine"}>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className={labelCls}>Full name *</label>
@@ -121,40 +165,51 @@ export function EngineerForm({ onClose, onCreated }: { onClose: () => void; onCr
         </div>
       </div>
       <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="font-mono text-[9.5px] text-text-400 uppercase">New ENG-### primary key will be issued</p>
-        <button
-          disabled={!valid}
-          onClick={() => onCreated?.(addEngineer(f))}
-          className="cursor-pointer rounded-[3px] bg-ink-900 px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.16em] text-amber-400 uppercase transition-all hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Save employee
+        <p className="font-mono text-[9.5px] text-text-400 uppercase">
+          {editing ? `Updating row ${editing.id} — assignments in the ledger follow the profile` : "New ENG-### primary key will be issued"}
+        </p>
+        <button disabled={!valid} onClick={save} className={btnCls}>
+          <span className="flex items-center gap-2">{editing ? <IconSave size={13} /> : null}{editing ? "Update employee" : "Save employee"}</span>
         </button>
       </div>
     </Modal>
   );
 }
 
-/* ─────────────── Project encoder ─────────────── */
+/* ─────────────── Project encoder / editor ─────────────── */
 
-export function ProjectForm({ onClose }: { onClose: () => void }) {
+export function ProjectForm({ onClose, editing }: { onClose: () => void; editing?: ProjectRecord | null }) {
   const { records, contractors, engineers } = useStore();
   const today = new Date().toISOString().slice(0, 10);
   const plus180 = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
-  const [type, setType] = useState<ProjectType>("Concreting");
-  const [f, setF] = useState({
-    name: "", mode: "By Contract" as ModeOfImplementation, fund: FUNDS[0],
-    folderNo: `OCE-IF-${new Date().getFullYear()}-`, implementorId: "", inchargeId: "",
-    lat: "9.73890", lng: "118.73900", source: "KML" as LocationSource, ref: "",
-    linearLength: "1000", contractedAmount: "0", actualAmount: "0", bidYear: String(new Date().getFullYear()),
-    contractedStart: today, contractedCompletion: plus180, actualStart: "", actualCompletion: "",
-    percent: 0, notes: "",
-  });
+  const [type, setType] = useState<ProjectType>(editing?.type ?? "Concreting");
+  const [f, setF] = useState(() =>
+    editing
+      ? {
+          name: editing.name, mode: editing.mode as ModeOfImplementation, fund: editing.fund,
+          folderNo: editing.folderNo, implementorId: editing.implementorId, inchargeId: editing.inchargeId,
+          lat: String(editing.location.lat), lng: String(editing.location.lng), source: editing.location.source as LocationSource, ref: editing.location.ref,
+          linearLength: String(editing.linearLength), contractedAmount: String(editing.contractedAmount), actualAmount: String(editing.actualAmount),
+          bidYear: String(editing.bidYear), contractedStart: editing.contractedStart, contractedCompletion: editing.contractedCompletion,
+          actualStart: editing.actualStart ?? "", actualCompletion: editing.actualCompletion ?? "",
+          percent: editing.percent, notes: editing.notes,
+        }
+      : {
+          name: "", mode: "By Contract" as ModeOfImplementation, fund: FUNDS[0],
+          folderNo: `OCE-IF-${new Date().getFullYear()}-`, implementorId: "", inchargeId: "",
+          lat: "9.73890", lng: "118.73900", source: "KML" as LocationSource, ref: "",
+          linearLength: "1000", contractedAmount: "0", actualAmount: "0", bidYear: String(new Date().getFullYear()),
+          contractedStart: today, contractedCompletion: plus180, actualStart: "", actualCompletion: "",
+          percent: 0, notes: "",
+        }
+  );
   const [nested, setNested] = useState<null | "ctr" | "eng">(null);
   const valid = f.name.trim().length > 3 && f.implementorId && f.inchargeId;
+  const fundOptions = FUNDS.includes(f.fund) ? FUNDS : [f.fund, ...FUNDS];
+  const unlinkWarn = editing && (!editing.implementorId || !editing.inchargeId);
 
   const submit = () => {
-    const rec: ProjectRecord = {
-      id: nextRecordId(records),
+    const data = {
       name: f.name.trim(), type, mode: f.mode, fund: f.fund,
       objectCode: TYPE_OBJECT_CODE[type], folderNo: f.folderNo || "OCE-IF-PENDING",
       implementorId: f.implementorId, inchargeId: f.inchargeId,
@@ -167,23 +222,32 @@ export function ProjectForm({ onClose }: { onClose: () => void }) {
       actualStart: f.actualStart || null, actualCompletion: f.actualCompletion || null,
       percent: f.percent, notes: f.notes,
     };
-    addRecord(rec);
+    if (editing) {
+      updateRecord(editing.id, data);
+      toast(`${editing.id} — ${data.name}`, "updated", "project record updated · all fields re-encoded");
+    } else {
+      const rec: ProjectRecord = { id: nextRecordId(records), ...data };
+      addRecord(rec);
+      toast(`${rec.id} — ${rec.name}`, "saved", "project record registered to ledger");
+    }
     onClose();
   };
 
-  const FkSelect = ({ label, value, onChange, options, encode }: {
+  const FkSelect = ({ label, value, onChange, options, encode, warn }: {
     label: string; value: string; onChange: (v: string) => void;
-    options: { id: string; name: string; sub: string }[]; encode: () => void;
+    options: { id: string; name: string; sub: string }[]; encode: () => void; warn?: boolean;
   }) => (
     <div>
       <div className="flex items-center justify-between">
-        <label className={labelCls}>{label} (FK) *</label>
+        <label className={`${labelCls} ${warn && !value ? "text-coral-600" : ""}`}>
+          {label} (FK) * {warn && !value && <span className="normal-case">· relink required</span>}
+        </label>
         <button onClick={encode} className="mb-1 flex cursor-pointer items-center gap-1 font-mono text-[9px] font-bold tracking-wider text-pine-600 uppercase transition-colors hover:text-pine-500">
           <IconPlus size={9} /> Encode new
         </button>
       </div>
       <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">— select —</option>
+        <option value="">— unlinked · select —</option>
         {options.map((o) => <option key={o.id} value={o.id}>{o.name} · {o.sub}</option>)}
       </select>
     </div>
@@ -191,7 +255,16 @@ export function ProjectForm({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <Modal title="Encode Road Project" sheet={`project_records · ${nextRecordId(records)}`} onClose={onClose} wide>
+      <Modal
+        title={editing ? "Edit Road Project" : "Encode Road Project"}
+        sheet={`project_records · ${editing ? `${editing.id} · UPDATE` : nextRecordId(records)}`}
+        onClose={onClose} wide tone={editing ? "amber" : "pine"}
+      >
+        {editing && (
+          <div className="mb-4 flex items-center gap-2 rounded-[3px] border border-amber-500/60 bg-amber-500/10 px-3 py-2 font-mono text-[10px] tracking-wider text-amber-600 uppercase">
+            <IconEdit size={12} /> Editing live row {editing.id} — saving overwrites the record and persists to localStorage
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="col-span-2 sm:col-span-3">
             <label className={labelCls}>Name of road project *</label>
@@ -213,7 +286,7 @@ export function ProjectForm({ onClose }: { onClose: () => void }) {
           <div>
             <label className={labelCls}>Source of fund</label>
             <select className={inputCls} value={f.fund} onChange={(e) => setF({ ...f, fund: e.target.value })}>
-              {FUNDS.map((s) => <option key={s}>{s}</option>)}
+              {fundOptions.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
 
@@ -234,13 +307,13 @@ export function ProjectForm({ onClose }: { onClose: () => void }) {
             label="Project implementor"
             value={f.implementorId} onChange={(v) => setF({ ...f, implementorId: v })}
             options={contractors.map((c) => ({ id: c.id, name: c.name, sub: c.pcab === "—" ? "Force Acct" : c.pcab }))}
-            encode={() => setNested("ctr")}
+            encode={() => setNested("ctr")} warn={!!unlinkWarn}
           />
           <FkSelect
             label="Project in-charge"
             value={f.inchargeId} onChange={(v) => setF({ ...f, inchargeId: v })}
             options={engineers.map((e) => ({ id: e.id, name: e.name, sub: e.position }))}
-            encode={() => setNested("eng")}
+            encode={() => setNested("eng")} warn={!!unlinkWarn}
           />
           <div>
             <label className={labelCls}>Linear length (m)</label>
@@ -313,14 +386,15 @@ export function ProjectForm({ onClose }: { onClose: () => void }) {
 
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-line-300 pt-4">
           <p className="font-mono text-[9.5px] text-text-400 uppercase">
-            {f.mode === "By Administration" ? "Force-account mode — implementor defaults to OCE Forces" : "Contract mode — implementor must hold valid PCAB license"}
+            {editing
+              ? "All 21 fields re-encoded · primary key immutable"
+              : f.mode === "By Administration" ? "Force-account mode — implementor defaults to OCE Forces" : "Contract mode — implementor must hold valid PCAB license"}
           </p>
-          <button
-            disabled={!valid}
-            onClick={submit}
-            className="cursor-pointer rounded-[3px] bg-ink-900 px-6 py-2.5 font-mono text-[11px] font-bold tracking-[0.16em] text-amber-400 uppercase transition-all hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Register project
+          <button disabled={!valid} onClick={submit} className={btnCls}>
+            <span className="flex items-center gap-2">
+              {editing ? <IconSave size={13} /> : null}
+              {editing ? "Update & save record" : "Register project"}
+            </span>
           </button>
         </div>
       </Modal>

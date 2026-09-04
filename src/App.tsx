@@ -11,6 +11,7 @@ import { statusOf } from "./data/registry";
 import { useStore } from "./state/store";
 import { type Road } from "./data/roads";
 import { Seal } from "./components/icons";
+import { Toaster } from "./components/toast";
 
 function Ticker() {
   const { records } = useStore();
@@ -124,6 +125,7 @@ export default function App() {
           <Footer />
         </main>
       </div>
+      <Toaster />
     </div>
   );
 }
