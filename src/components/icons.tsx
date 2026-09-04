@@ -175,6 +175,13 @@ export const IconSave = (p: P) => (
   </svg>
 );
 
+export const IconParcels = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 5.5 10.5 4l9 1.8L20 19l-7.5 1.4L4 18.6V5.5Z" />
+    <path d="M4 11.6l8.6 1M12.6 4.4l-.2 8.2M12.4 12.6 19.7 12M12.3 12.6 12 20.3" />
+  </svg>
+);
+
 export const IconPlus = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 5v14M5 12h14" />

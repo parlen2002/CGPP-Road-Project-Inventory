@@ -9,22 +9,23 @@ import { IconCrosshair, IconCompass, IconPlus } from "./icons";
 
 const CITY: [number, number] = [9.7425, 118.7365];
 
+/* key-free public tile services — OSM standard + Esri World Imagery (free use with attribution) */
 const BASEMAPS = {
-  dark: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    label: "Night survey",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  street: {
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    label: "OSM street",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   },
-  light: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    label: "Field map",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    label: "Satellite",
+    attribution: "Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics",
   },
 };
 
 export interface Focus { point: [number, number]; zoom: number; key: number; }
 
-interface Layers { roads: boolean; national: boolean; pins: boolean; barangays: boolean; }
+interface Layers { roads: boolean; pins: boolean; barangays: boolean; }
 
 export default function MapView({ focus, roads, onLocate }: {
   focus?: Focus | null;
@@ -32,8 +33,8 @@ export default function MapView({ focus, roads, onLocate }: {
   onLocate?: (r: Road) => void;
 }) {
   const { records, contractors } = useStore();
-  const [basemap, setBasemap] = useState<"dark" | "light">("dark");
-  const [layers, setLayers] = useState<Layers>({ roads: true, national: true, pins: true, barangays: true });
+  const [basemap, setBasemap] = useState<keyof typeof BASEMAPS>("street");
+  const [layers, setLayers] = useState<Layers>({ roads: true, pins: true, barangays: true });
   const [coord, setCoord] = useState<[number, number] | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const reduced = prefersReduced();
@@ -152,7 +153,7 @@ export default function MapView({ focus, roads, onLocate }: {
 
       {/* basemap toggle */}
       <div className="absolute top-3 right-3 z-[600] flex rounded-[3px] border border-ink-600 bg-ink-900/90 p-0.5 backdrop-blur">
-        {(Object.keys(BASEMAPS) as ("dark" | "light")[]).map((k) => (
+        {(Object.keys(BASEMAPS) as (keyof typeof BASEMAPS)[]).map((k) => (
           <button
             key={k}
             onClick={() => setBasemap(k)}
@@ -199,7 +200,6 @@ export default function MapView({ focus, roads, onLocate }: {
       <div className="absolute top-14 left-3 z-[600] flex flex-col gap-1.5">
         {([
           ["roads", `City roads (OCE) · ${roads.length}`],
-          ["national", "National · DPWH ref"],
           ["pins", `Project stations · ${records.length}`],
           ["barangays", "Barangay centroids"],
         ] as [keyof Layers, string][]).map(([k, label]) => (

@@ -131,7 +131,7 @@ body {
 /* ---------- leaflet overrides ---------- */
 .leaflet-container {
   font-family: var(--font-body);
-  background: #0c1913;
+  background: #dfe3d6;
   outline: none;
 }
 .leaflet-container .leaflet-control-attribution {

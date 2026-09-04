@@ -6,6 +6,7 @@ import Overview from "./pages/Overview";
 import Inventory from "./pages/Inventory";
 import Projects from "./pages/Projects";
 import Analytics from "./pages/Analytics";
+import LotAnalysis from "./pages/LotAnalysis";
 import System from "./pages/System";
 import { statusOf } from "./data/registry";
 import { useStore } from "./state/store";
@@ -120,6 +121,7 @@ export default function App() {
             <Inventory query={invQuery} selectedId={invSelected} onSelect={setInvSelected} onLocate={locateRoad} />
           )}
           {page === "projects" && <Projects onLocate={locate} onOpenRoad={openInventory} />}
+          {page === "cadastre" && <LotAnalysis onLocate={locate} />}
           {page === "analytics" && <Analytics />}
           {page === "system" && <System />}
           <Footer />
