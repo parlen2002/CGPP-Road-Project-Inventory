@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap, useMapE
 import type { Road } from "../data/roads";
 import { statusOf, typeShort, fmtPesoM, barangayLabel } from "../data/registry";
 import { useStore, recordPoint, pinSourceOf } from "../state/store";
+import { lineLengthM, fmtKm } from "../lib/geo";
 import { conditionMeta, classMeta, fmtCoord, prefersReduced } from "./ui";
 import { IconCrosshair, IconCompass, IconPlus } from "./icons";
 
@@ -24,16 +25,16 @@ const BASEMAPS = {
 
 export interface Focus { point: [number, number]; zoom: number; key: number; }
 
-interface Layers { roads: boolean; pins: boolean; barangays: boolean; }
+interface Layers { roads: boolean; axes: boolean; pins: boolean; barangays: boolean; }
 
 export default function MapView({ focus, roads, onLocate }: {
   focus?: Focus | null;
   roads: Road[];
   onLocate?: (r: Road) => void;
 }) {
-  const { records, contractors, barangays } = useStore();
+  const { records, contractors, barangays, centerlines } = useStore();
   const [basemap, setBasemap] = useState<keyof typeof BASEMAPS>("street");
-  const [layers, setLayers] = useState<Layers>({ roads: true, pins: true, barangays: true });
+  const [layers, setLayers] = useState<Layers>({ roads: true, axes: true, pins: true, barangays: true });
   const [coord, setCoord] = useState<[number, number] | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const reduced = prefersReduced();
@@ -61,7 +62,54 @@ export default function MapView({ focus, roads, onLocate }: {
           <RoadLayer key={r.id} road={r} onSelect={() => onLocate?.(r)} />
         ))}
 
-
+        {/* project centerline axes — the same KML / GPX axes shown on Lot & ROW,
+            drawn here from the project records so both maps stay in lockstep */}
+        {layers.axes && centerlines.map((cl) => {
+          const rec = records.find((r) => r.id === cl.projectId);
+          const meta = rec ? statusOf(rec) : null;
+          const color = meta ? meta.color : "#9db8a6";
+          const lenM = lineLengthM(cl.line);
+          return (
+            <Polyline
+              key={cl.id}
+              positions={cl.line}
+              pathOptions={{
+                color, weight: 4, opacity: rec ? 0.85 : 0.55,
+                dashArray: rec ? undefined : "6 6", lineCap: "butt",
+              }}
+            >
+              <Tooltip className="rpis-tip" direction="top" offset={[0, -6]}>
+                {rec
+                  ? `${rec.id} · ${rec.name.slice(0, 30)}${rec.name.length > 30 ? "…" : ""} — ${meta!.label} ${rec.percent}% · ${fmtKm(lenM)}`
+                  : `${cl.id} · ${cl.name} — unlinked centerline · ${fmtKm(lenM)}`}
+              </Tooltip>
+              {rec && (
+                <Popup className="rpis-popup" minWidth={210}>
+                  <div style={{ minWidth: 196 }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.18em", color: meta!.color, textTransform: "uppercase", margin: 0, fontWeight: 700 }}>
+                      CENTERLINE AXIS · {cl.id}
+                    </p>
+                    <p style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 700, lineHeight: 1.15, textTransform: "uppercase", margin: "4px 0 6px", color: "#f5f7f0" }}>
+                      {rec.name}
+                    </p>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "#9db8a6", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      {rec.id} · {typeShort[rec.type]} · {fmtKm(lenM)} · via {cl.source}
+                    </p>
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 9, color: "#9db8a6", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                        <span style={{ color: meta!.color, fontWeight: 700 }}>{meta!.label}</span>
+                        <span>{rec.percent}%</span>
+                      </div>
+                      <div style={{ height: 5, marginTop: 4, background: "rgba(255,255,255,0.1)", borderRadius: 2 }}>
+                        <div style={{ height: "100%", width: `${rec.percent}%`, background: meta!.color, borderRadius: 2 }} />
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              )}
+            </Polyline>
+          );
+        })}
 
         {layers.pins &&
           records.map((p) => {
@@ -201,6 +249,7 @@ export default function MapView({ focus, roads, onLocate }: {
       <div className="absolute top-14 left-3 z-[600] flex flex-col gap-1.5">
         {([
           ["roads", `City roads (OCE) · ${roads.length}`],
+          ["axes", `Project axes · ${centerlines.length}`],
           ["pins", `Project stations · ${records.length}`],
           ["barangays", "Barangay centroids"],
         ] as [keyof Layers, string][]).map(([k, label]) => (
