@@ -10,7 +10,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import {
   emptySpecs, VARIANT_META, PAVEMENTS, SHOULDER_TYPES, FINISHES, RAMPS,
-  DRAINAGE_TYPES, SLOPE_TYPES, SPEC_ROWS, filledCount,
+  DRAINAGE_TYPES, SLOPE_TYPES, LIGHT_FIXTURES, LIGHT_CONTROLS, LIGHT_POWER,
+  SPEC_ROWS, filledCount,
   type TechSpecs, type RevisionMeta, type ActualMeta,
   type SuspensionOrder, type VariationOrder, type SpecVariant,
 } from "../data/specs";
@@ -31,6 +32,7 @@ const SECTION_META = [
   { key: "sidewalk", code: "SWLK", name: "Sidewalk" },
   { key: "drainage", code: "DRNG", name: "Drainage System" },
   { key: "slope", code: "SLP", name: "Slope Protection" },
+  { key: "streetlights", code: "LITE", name: "Street Lights" },
 ] as const;
 
 function SpecField({ label, value, onChange, select, unit }: {
@@ -119,6 +121,14 @@ export function SpecForm({ record, variant, onClose }: {
             <SpecField label="Protection type" value={specs.slope.type} onChange={(v) => setSec("slope", "type", v)} select={SLOPE_TYPES} />
             <SpecField label="Wall height" unit="m" value={specs.slope.heightM} onChange={(v) => setSec("slope", "heightM", v)} />
             <SpecField label="Protected length" unit="m" value={specs.slope.lengthM} onChange={(v) => setSec("slope", "lengthM", v)} />
+          </>)}
+          {key === "streetlights" && (<>
+            <SpecField label="Lighting points / poles" unit="no." value={specs.streetlights.poles} onChange={(v) => setSec("streetlights", "poles", v)} />
+            <SpecField label="Pole height" unit="m" value={specs.streetlights.poleHeightM} onChange={(v) => setSec("streetlights", "poleHeightM", v)} />
+            <SpecField label="Fixture" value={specs.streetlights.fixture} onChange={(v) => setSec("streetlights", "fixture", v)} select={LIGHT_FIXTURES} />
+            <SpecField label="Pole spacing" unit="m c/c" value={specs.streetlights.spacingM} onChange={(v) => setSec("streetlights", "spacingM", v)} />
+            <SpecField label="Control" value={specs.streetlights.control} onChange={(v) => setSec("streetlights", "control", v)} select={LIGHT_CONTROLS} />
+            <SpecField label="Power source" value={specs.streetlights.power} onChange={(v) => setSec("streetlights", "power", v)} select={LIGHT_POWER} />
           </>)}
         </div>
       </div>

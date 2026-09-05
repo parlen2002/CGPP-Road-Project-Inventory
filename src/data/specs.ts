@@ -2,8 +2,8 @@
    TECHNICAL SPECIFICATIONS · REVISIONS · ACTUAL (AS-BUILT)
    + SUSPENSION & VARIATION ORDERS — linked to project_records.
 
-   One shared spec shape covers the five civil works sections
-   (road, shoulder, sidewalk, drainage, slope protection).
+   One shared spec shape covers the six civil works sections
+   (road, shoulder, sidewalk, drainage, slope protection, street lights).
    A record carries up to three variants of it:
      · technical — as-designed
      · revision  — revised design (revision no. + reason)
@@ -23,6 +23,7 @@ export interface ShoulderSpec { widthM: string; type: string; thicknessCm: strin
 export interface SidewalkSpec { widthM: string; thicknessCm: string; finish: string; ramps: string; }
 export interface DrainageSpec { type: string; sizeM: string; lengthM: string; }
 export interface SlopeSpec { type: string; heightM: string; lengthM: string; }
+export interface StreetlightSpec { poles: string; poleHeightM: string; fixture: string; spacingM: string; control: string; power: string; }
 
 export interface TechSpecs {
   road: RoadSpec;
@@ -30,6 +31,7 @@ export interface TechSpecs {
   sidewalk: SidewalkSpec;
   drainage: DrainageSpec;
   slope: SlopeSpec;
+  streetlights: StreetlightSpec;
 }
 
 export type SpecVariant = "technical" | "revision" | "actual";
@@ -46,6 +48,7 @@ export const emptySpecs = (): TechSpecs => ({
   sidewalk: { widthM: "", thicknessCm: "", finish: "", ramps: "" },
   drainage: { type: "", sizeM: "", lengthM: "" },
   slope: { type: "", heightM: "", lengthM: "" },
+  streetlights: { poles: "", poleHeightM: "", fixture: "", spacingM: "", control: "", power: "" },
 });
 
 /* select lists for the spec encoder */
@@ -55,6 +58,9 @@ export const FINISHES = ["Interlocking blocks", "Concrete broom finish", "Concre
 export const RAMPS = ["Yes — BP 344", "No"];
 export const DRAINAGE_TYPES = ["RC box culvert", "RC pipe", "Open channel (lined)", "Catch basin + pipe"];
 export const SLOPE_TYPES = ["Gabion", "Riprap", "RC retaining wall", "Soil nail + shotcrete"];
+export const LIGHT_FIXTURES = ["LED 60W", "LED 100W", "LED 150W", "HPS 250W", "Solar LED 40W"];
+export const LIGHT_CONTROLS = ["Photocell dusk-to-dawn", "Timer", "Smart dimming", "Manual"];
+export const LIGHT_POWER = ["PPC-ELCO feed", "LGU meter", "Solar hybrid", "Standalone solar"];
 
 /* revision / actual carry their own meta */
 export interface RevisionMeta { revisionNo: string; date: string; reason: string; }
@@ -88,6 +94,12 @@ export const SPEC_ROWS: SpecRow[] = [
   { section: "SLP", label: "Protection type", unit: "", get: (s) => s.slope.type },
   { section: "SLP", label: "Wall height", unit: "m", get: (s) => s.slope.heightM },
   { section: "SLP", label: "Protected length", unit: "m", get: (s) => s.slope.lengthM },
+  { section: "LITE", label: "Lighting points / poles", unit: "no.", get: (s) => s.streetlights.poles },
+  { section: "LITE", label: "Pole height", unit: "m", get: (s) => s.streetlights.poleHeightM },
+  { section: "LITE", label: "Fixture", unit: "", get: (s) => s.streetlights.fixture },
+  { section: "LITE", label: "Pole spacing", unit: "m c/c", get: (s) => s.streetlights.spacingM },
+  { section: "LITE", label: "Control", unit: "", get: (s) => s.streetlights.control },
+  { section: "LITE", label: "Power source", unit: "", get: (s) => s.streetlights.power },
 ];
 
 export const filledCount = (s: TechSpecs) => SPEC_ROWS.filter((r) => r.get(s).trim() !== "").length;

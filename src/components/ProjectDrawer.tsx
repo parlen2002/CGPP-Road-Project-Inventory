@@ -68,7 +68,8 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
   return (
     <div className="anim-fade-in fixed inset-0 z-40">
       <div className="absolute inset-0 bg-ink-950/50" onClick={onClose} />
-      <aside className="absolute top-0 right-0 flex h-full w-full max-w-[570px] flex-col border-l-2 border-ink-800 bg-paper-200 shadow-2xl">
+      {/* widened ~26% (570 → 720) so the three-column spec tables lay out cleanly */}
+      <aside className="absolute top-0 right-0 flex h-full w-full max-w-[720px] flex-col border-l-2 border-ink-800 bg-paper-200 shadow-2xl">
         {/* header */}
         <div className="border-b-2 border-ink-800 bg-ink-900 px-5 py-4">
           <div className="flex items-start justify-between gap-3">

@@ -7,7 +7,17 @@
    dedicated encoder windows (specForms).
    ────────────────────────────────────────────────────────────── */
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
+
+/* section code → full name for the table group headers */
+const SECTION_NAME: Record<string, string> = {
+  RD: "Road",
+  SHLD: "Road Shoulder",
+  SWLK: "Sidewalk",
+  DRNG: "Drainage System",
+  SLP: "Slope Protection",
+  LITE: "Street Lights",
+};
 import {
   SPEC_ROWS, VARIANT_META, fmtShortDate,
   adjustedContract, adjustedCompletion, voAmount, voTimeExt, soDaysUsed,
@@ -117,30 +127,48 @@ export default function RecordDetails({ record }: { record: ProjectRecord }) {
                   <td className="px-2.5 py-1.5 font-mono text-[8.5px] tracking-wider text-text-400 uppercase">Controls</td>
                   {(["technical", "revision", "actual"] as SpecVariant[]).map((v) => <td key={v} className="px-2.5 py-1.5"><SpecCell variant={v} /></td>)}
                 </tr>
-                {SPEC_ROWS.map((row) => {
-                  const tv = tech ? row.get(tech) : "";
-                  const rv = rev ? row.get(rev) : "";
-                  const av = act ? row.get(act) : "";
-                  if (!tv && !rv && !av) return null;
-                  const diff = (v: string) => v !== "" && tv !== "" && v !== tv;
-                  return (
-                    <tr key={row.section + row.label} className="transition-colors hover:bg-ink-900/[0.04]">
-                      <td className="px-2.5 py-1.5">
-                        <span className="mr-1.5 rounded-[2px] bg-ink-900/8 px-1 font-mono text-[8px] font-bold text-teal-500">{row.section}</span>
-                        <span className="text-[11px] font-medium text-ink-900">{row.label}</span>
-                      </td>
-                      <td className="px-2.5 py-1.5 font-mono text-[10.5px] font-semibold text-ink-900">{tv || "—"}<span className="text-[8.5px] text-text-400"> {row.unit}</span></td>
-                      <td className={`px-2.5 py-1.5 font-mono text-[10.5px] font-semibold ${diff(rv) ? "bg-amber-500/15 text-amber-600" : "text-text-600"}`}>{rv || "—"}{diff(rv) && " Δ"}<span className="text-[8.5px] text-text-400"> {row.unit}</span></td>
-                      <td className={`px-2.5 py-1.5 font-mono text-[10.5px] font-semibold ${diff(av) ? "bg-pine-600/12 text-pine-600" : "text-text-600"}`}>{av || "—"}{diff(av) && " Δ"}<span className="text-[8.5px] text-text-400"> {row.unit}</span></td>
-                    </tr>
-                  );
-                })}
+                {(() => {
+                  const visible = SPEC_ROWS
+                    .map((row) => ({
+                      row,
+                      tv: tech ? row.get(tech) : "",
+                      rv: rev ? row.get(rev) : "",
+                      av: act ? row.get(act) : "",
+                    }))
+                    .filter((x) => x.tv || x.rv || x.av);
+                  let prevSection = "";
+                  return visible.map(({ row, tv, rv, av }) => {
+                    const diff = (v: string) => v !== "" && tv !== "" && v !== tv;
+                    const isNewSection = row.section !== prevSection;
+                    prevSection = row.section;
+                    return (
+                      <Fragment key={row.section + row.label}>
+                        {isNewSection && (
+                          <tr className="bg-paper-200/70">
+                            <td colSpan={4} className="px-2.5 py-1 font-mono text-[8px] font-bold tracking-[0.18em] text-pine-600 uppercase">
+                              ▸ {SECTION_NAME[row.section] ?? row.section}
+                            </td>
+                          </tr>
+                        )}
+                        <tr className="transition-colors hover:bg-ink-900/[0.04]">
+                          <td className="px-2.5 py-1.5">
+                            <span className="mr-1.5 rounded-[2px] bg-ink-900/8 px-1 font-mono text-[8px] font-bold text-teal-500">{row.section}</span>
+                            <span className="text-[11px] font-medium text-ink-900">{row.label}</span>
+                          </td>
+                          <td className="px-2.5 py-1.5 font-mono text-[10.5px] font-semibold text-ink-900">{tv || "—"}<span className="text-[8.5px] text-text-400"> {row.unit}</span></td>
+                          <td className={`px-2.5 py-1.5 font-mono text-[10.5px] font-semibold ${diff(rv) ? "bg-amber-500/15 text-amber-600" : "text-text-600"}`}>{rv || "—"}{diff(rv) && " Δ"}<span className="text-[8.5px] text-text-400"> {row.unit}</span></td>
+                          <td className={`px-2.5 py-1.5 font-mono text-[10.5px] font-semibold ${diff(av) ? "bg-pine-600/12 text-pine-600" : "text-text-600"}`}>{av || "—"}{diff(av) && " Δ"}<span className="text-[8.5px] text-text-400"> {row.unit}</span></td>
+                        </tr>
+                      </Fragment>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>
         ) : (
           <p className="px-4 py-4 font-mono text-[10px] text-text-400">
-            No technical specifications encoded yet. Open <b className="text-ink-900">Technical specs</b> to describe the road, shoulder, sidewalk, drainage and slope protection — revisions and as-built details build on it.
+            No technical specifications encoded yet. Open <b className="text-ink-900">Technical specs</b> to describe the road, shoulder, sidewalk, drainage, slope protection and street lights — revisions and as-built details build on it.
           </p>
         )}
       </section>
