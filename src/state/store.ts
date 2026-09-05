@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import {
-  seedRecords, seedContractors, seedEngineers,
-  type ProjectRecord, type Contractor, type Engineer,
+  seedRecords, seedContractors, seedEngineers, projectPoint,
+  type ProjectRecord, type Contractor, type Engineer, type Attachment,
 } from "../data/registry";
 import {
   generateSampleCadastral, seedCenterlines,
@@ -16,7 +16,7 @@ export interface Snapshot {
   centerlines: Centerline[]; // road centerlines (KML / GPX / drawn), linked to records
 }
 
-const KEY = "rpis-store-v4"; // v4 = cadastre + centerlines; older snapshots are reseeded
+const KEY = "rpis-store-v5"; // v5 = attachment-based location model; older snapshots are reseeded
 
 function load(): Snapshot {
   try {
@@ -27,6 +27,7 @@ function load(): Snapshot {
       if (
         p && Array.isArray(p.records) && p.records.length &&
         Array.isArray(p.records[0]?.location?.barangays) &&
+        Array.isArray(p.records[0]?.attachments) &&
         Array.isArray(p.contractors) && Array.isArray(p.engineers) &&
         Array.isArray(p.parcels) && Array.isArray(p.centerlines)
       ) return p;
@@ -76,6 +77,66 @@ export function updateRecord(id: string, patch: Partial<Omit<ProjectRecord, "id"
 
 export function deleteRecord(id: string) {
   mutate({ ...snapshot, records: snapshot.records.filter((r) => r.id !== id) });
+}
+
+/* ---------------- attachments (geotagged images / PDFs) ---------------- */
+
+export function addAttachment(recordId: string, att: Attachment) {
+  mutate({
+    ...snapshot,
+    records: snapshot.records.map((r) =>
+      r.id === recordId ? { ...r, attachments: [...(r.attachments ?? []), att] } : r),
+  });
+}
+
+export function deleteAttachment(recordId: string, attId: string) {
+  mutate({
+    ...snapshot,
+    records: snapshot.records.map((r) =>
+      r.id === recordId ? { ...r, attachments: (r.attachments ?? []).filter((a) => a.id !== attId) } : r),
+  });
+}
+
+/** Reads the live snapshot so batch uploads get sequential ids. */
+export function nextAttachmentId(recordId: string): string {
+  const rec = snapshot.records.find((r) => r.id === recordId);
+  const n = (rec?.attachments ?? [])
+    .map((a) => parseInt(a.id.replace(/\D/g, ""), 10))
+    .filter((x) => !Number.isNaN(x))
+    .reduce((a, b) => Math.max(a, b), 0);
+  return `ATT-${String(n + 1).padStart(3, "0")}`;
+}
+
+/* ---------------- pin resolution ----------------
+   1. geotagged image EXIF GPS  → exact station
+   2. linked centerline (Lot & ROW) → its centroid
+   3. barangay centroid(s) → fallback (projectPoint) */
+
+export function linkedCenterline(r: ProjectRecord): Centerline | null {
+  return snapshot.centerlines.find((c) => c.projectId === r.id) ?? null;
+}
+
+export function recordPoint(r: ProjectRecord): [number, number] {
+  const geo = (r.attachments ?? []).find((a) => a.lat != null && a.lng != null);
+  if (geo) return [geo.lat!, geo.lng!];
+  const cl = linkedCenterline(r);
+  if (cl && cl.line.length) {
+    return [
+      cl.line.reduce((s, p) => s + p[0], 0) / cl.line.length,
+      cl.line.reduce((s, p) => s + p[1], 0) / cl.line.length,
+    ];
+  }
+  return projectPoint(r);
+}
+
+export type PinKind = "geotag" | "centerline" | "barangay";
+
+export function pinSourceOf(r: ProjectRecord): { kind: PinKind; label: string } {
+  const geo = (r.attachments ?? []).find((a) => a.lat != null && a.lng != null);
+  if (geo) return { kind: "geotag", label: `Geotagged · ${geo.name}` };
+  const cl = linkedCenterline(r);
+  if (cl) return { kind: "centerline", label: `Centerline · ${cl.id} (Lot & ROW)` };
+  return { kind: "barangay", label: "Barangay centroid — no field capture" };
 }
 
 export function addContractor(c: Omit<Contractor, "id">): string {

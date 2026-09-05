@@ -167,6 +167,30 @@ export const seedCenterlines: Centerline[] = [
     projectId: "RPIS-2025-014",
     source: "KML · Rizal_Ave_sidewalk_rev2.kml",
   },
+  {
+    id: "CL-002",
+    name: "Mandaragat Road Seg. 1 — centerline",
+    line: [[9.7418, 118.7452], [9.7442, 118.7482], [9.7468, 118.7515], [9.7496, 118.7551], [9.7522, 118.7588]],
+    radiusM: 7,
+    projectId: "RPIS-2025-017",
+    source: "GPX · mandaragat_seg1.gpx",
+  },
+  {
+    id: "CL-003",
+    name: "Bacungan Spur Seg. 3 — centerline",
+    line: [[9.7611, 118.7548], [9.7642, 118.7512], [9.7675, 118.7482], [9.7712, 118.7455], [9.7752, 118.7438]],
+    radiusM: 6,
+    projectId: "RPIS-2024-036",
+    source: "GPX · bacungan_spur_seg3_2025-11.gpx",
+  },
+  {
+    id: "CL-004",
+    name: "Burgos Street lighting axis",
+    line: [[9.7349, 118.7355], [9.7352, 118.7385], [9.7356, 118.7415], [9.7359, 118.7446]],
+    radiusM: 4,
+    projectId: "RPIS-2024-052",
+    source: "KML · burgos_lighting_asbuilt.kml",
+  },
 ];
 
 /* ---------------- ROW analysis runner ---------------- */

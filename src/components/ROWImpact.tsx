@@ -12,7 +12,7 @@ import type { LatLng } from "../lib/geo";
 import { fmtArea } from "../lib/geo";
 import { runROWAnalysis } from "../data/cadastre";
 import { useStore } from "../state/store";
-import type { ProjectRecord } from "../data/registry";
+import { geotagOf, type ProjectRecord } from "../data/registry";
 import { CornerTicks } from "./ui";
 
 function FitBounds({ points }: { points: LatLng[] }) {
@@ -44,10 +44,13 @@ export default function ROWImpact({ record, onOpenCadastre }: {
   );
   const affectedIds = useMemo(() => new Set(analysis?.rows.map((r) => r.lotId) ?? []), [analysis]);
 
+  const geo = geotagOf(record);
+
   const fitPts = useMemo<LatLng[]>(() => {
-    if (!cl) return [];
-    return [...cl.line];
-  }, [cl]);
+    const pts: LatLng[] = cl ? [...cl.line] : [];
+    if (geo?.lat != null && geo.lng != null) pts.push([geo.lat, geo.lng]);
+    return pts;
+  }, [cl, geo]);
 
   const agg = useMemo(() => {
     if (!analysis) return null;
@@ -124,13 +127,17 @@ export default function ROWImpact({ record, onOpenCadastre }: {
               {/* centerline */}
               <Polyline positions={cl.line} pathOptions={{ color: "#ffc24d", weight: 3, opacity: 0.95 }} />
 
-              {/* geotagged station, if present */}
-              {record.location.evidence && (
+              {/* geotagged station — from the attached image's EXIF GPS */}
+              {geo && geo.lat != null && geo.lng != null && (
                 <CircleMarker
-                  center={[record.location.evidence.lat, record.location.evidence.lng]}
+                  center={[geo.lat, geo.lng]}
                   radius={6}
                   pathOptions={{ color: "#f5f7f0", weight: 2, fillColor: "#de5a36", fillOpacity: 1 }}
-                />
+                >
+                  <Tooltip className="rpis-tip" direction="top" offset={[0, -6]}>
+                    EXIF GPS · {geo.name}
+                  </Tooltip>
+                </CircleMarker>
               )}
             </MapContainer>
           </div>

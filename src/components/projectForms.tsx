@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from "react";
 import {
   PROJECT_TYPES, MODES, FUNDS, TYPE_OBJECT_CODE, PCAB_CATEGORIES,
-  ENGINEER_POSITIONS, ENGINEER_UNITS, LOC_SOURCES,
-  type ProjectType, type ModeOfImplementation, type LocationSource, type ProjectRecord,
+  ENGINEER_POSITIONS, ENGINEER_UNITS,
+  type ProjectType, type ModeOfImplementation, type ProjectRecord,
   type Contractor, type Engineer,
 } from "../data/registry";
 import { BARANGAY_POINTS } from "../data/roads";
 import { useStore, addRecord, updateRecord, addContractor, updateContractor, addEngineer, updateEngineer, nextRecordId } from "../state/store";
 import { toast } from "./toast";
-import { IconClose, IconPlus, IconPin, IconCamera, IconCheck } from "./icons";
+import { IconClose, IconPlus, IconPin, IconCheck } from "./icons";
 
 const inputCls =
   "w-full rounded-[3px] border border-line-400 bg-white/70 px-2.5 py-2 font-mono text-[11.5px] text-ink-900 placeholder:text-text-400/60 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40";
@@ -179,8 +179,6 @@ export function EngineerForm({ onClose, editing, onCreated }: {
 
 const BARANGAY_LIST = Object.keys(BARANGAY_POINTS);
 
-interface EvState { on: boolean; source: LocationSource; ref: string; lat: string; lng: string; }
-
 export function ProjectForm({ onClose, editing }: { onClose: () => void; editing?: ProjectRecord | null }) {
   const { records, contractors, engineers } = useStore();
   const today = new Date().toISOString().slice(0, 10);
@@ -202,38 +200,23 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
     percent: 0, notes: "",
   });
 
-  /* location — barangay-based; evidence optional */
+  /* location — barangay-based. Field files (geotagged images / PDFs) are
+     uploaded on the saved record; KML / GPX live in Lot & ROW as centerlines. */
   const [barangays, setBarangays] = useState<string[]>(editing?.location.barangays ?? []);
-  const [ev, setEv] = useState<EvState>(() => editing?.location.evidence
-    ? { on: true, source: editing.location.evidence.source, ref: editing.location.evidence.ref, lat: String(editing.location.evidence.lat), lng: String(editing.location.evidence.lng) }
-    : { on: false, source: "KML", ref: "", lat: "", lng: "" });
   const [nested, setNested] = useState<null | "ctr" | "eng">(null);
 
   const toggleBarangay = (b: string) =>
     setBarangays((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]));
 
-  const centroidOf = (list: string[]): [number, number] | null => {
-    const pts = list.map((b) => BARANGAY_POINTS[b]).filter(Boolean) as [number, number][];
-    if (!pts.length) return null;
-    return [
-      pts.reduce((s, p) => s + p[0], 0) / pts.length,
-      pts.reduce((s, p) => s + p[1], 0) / pts.length,
-    ];
-  };
-
-  const evComplete = ev.on && ev.ref.trim().length > 0 && !!parseFloat(ev.lat) && !!parseFloat(ev.lng);
   const valid = f.name.trim().length > 3 && !!f.implementorId && !!f.inchargeId && barangays.length > 0;
 
   const submit = () => {
-    const evidence = evComplete
-      ? { source: ev.source, ref: ev.ref.trim(), lat: parseFloat(ev.lat), lng: parseFloat(ev.lng) }
-      : null;
-    const loc = { barangays, evidence };
     const base = {
       name: f.name.trim(), type, mode: f.mode, fund: f.fund,
       objectCode: TYPE_OBJECT_CODE[type], folderNo: f.folderNo || "OCE-IF-PENDING",
       implementorId: f.implementorId, inchargeId: f.inchargeId,
-      location: loc,
+      location: { barangays },
+      attachments: editing?.attachments ?? [],   // uploads live on the record — never clobbered here
       linearLength: parseFloat(f.linearLength) || 0,
       contractedAmount: parseFloat(f.contractedAmount) || 0,
       actualAmount: parseFloat(f.actualAmount) || 0,
@@ -244,7 +227,7 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
     };
     if (editing) {
       updateRecord(editing.id, base);
-      toast(editing.name, "updated", `${editing.id} · ${barangays.length} barangay${barangays.length > 1 ? "s" : ""}${evidence ? ` · ${evidence.source} attached` : ""}`);
+      toast(editing.name, "updated", `${editing.id} · ${barangays.length} barangay${barangays.length > 1 ? "s" : ""}`);
     } else {
       const id = nextRecordId(records);
       addRecord({ ...base, id });
@@ -371,64 +354,16 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
               })}
             </div>
 
-            {/* supporting evidence */}
+            {/* how the project pin is resolved */}
             <div className="mt-3 rounded-[3px] border border-line-400 bg-paper-100 p-3">
-              <label className="flex cursor-pointer items-center gap-2.5">
-                <input
-                  type="checkbox" checked={ev.on}
-                  onChange={(e) => setEv({ ...ev, on: e.target.checked })}
-                  className="h-3.5 w-3.5 cursor-pointer accent-pine-600"
-                />
-                <span className="flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.14em] text-ink-900 uppercase">
-                  <IconCamera size={13} className="text-teal-500" /> Attach field evidence (geotag pin · KML / GPX centerline)
-                </span>
-              </label>
-              {ev.on ? (
-                <div className="anim-fade-in mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  <div>
-                    <label className={labelCls}>Evidence format</label>
-                    <select className={inputCls} value={ev.source} onChange={(e) => setEv({ ...ev, source: e.target.value as LocationSource })}>
-                      {LOC_SOURCES.map((s) => <option key={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>File / capture ref</label>
-                    <input className={inputCls} value={ev.ref} onChange={(e) => setEv({ ...ev, ref: e.target.value })} placeholder="e.g. seg2_track.gpx" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Latitude (WGS 84)</label>
-                    <input className={inputCls} value={ev.lat} onChange={(e) => setEv({ ...ev, lat: e.target.value })} placeholder="9.74xxx" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Longitude (WGS 84)</label>
-                    <input className={inputCls} value={ev.lng} onChange={(e) => setEv({ ...ev, lng: e.target.value })} placeholder="118.73xxx" />
-                  </div>
-                  <div className="col-span-2 flex items-center justify-between gap-3 sm:col-span-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const c = centroidOf(barangays);
-                        if (c) setEv({ ...ev, lat: c[0].toFixed(5), lng: c[1].toFixed(5) });
-                      }}
-                      disabled={!barangays.length}
-                      className="cursor-pointer rounded-[3px] border border-teal-500 px-2.5 py-1.5 font-mono text-[9.5px] font-bold tracking-wider text-teal-500 uppercase transition-colors hover:bg-teal-500 hover:text-paper-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      ⌖ Use barangay centroid{barangays.length > 1 ? "s (avg)" : ""}
-                    </button>
-                    <p className="font-mono text-[9px] text-text-400">
-                      {ev.source === "Geotagged Image"
-                        ? (evComplete ? "✓ geotag pinpoints the exact project station on the map" : "incomplete geotag is ignored — pin falls on the barangay centroid")
-                        : "KML / GPX become the road centerline — import it in Lot & ROW Analysis and link it to this record to compute lot impacts"}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-2 font-mono text-[9.5px] leading-relaxed text-text-400">
-                  No evidence attached — the project pin falls on the selected barangay centroid{barangays.length > 1 ? "s (averaged)" : ""}.
-                  A <b className="text-text-600">geotagged image</b> pinpoints the exact station; an imported <b className="text-text-600">KML / GPX</b> becomes the road
-                  centerline used for lot-overlap and ROW cost analysis.
-                </p>
-              )}
+              <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.14em] text-ink-900 uppercase">
+                <IconPin size={13} className="text-amber-600" /> How the project pin resolves
+              </p>
+              <ol className="mt-2 space-y-1 font-mono text-[9.5px] leading-relaxed text-text-600">
+                <li><b className="text-pine-600">1 · Geotagged image</b> — upload the photo on the saved record; its EXIF GPS becomes the exact station.</li>
+                <li><b className="text-teal-500">2 · Linked centerline</b> — import the project's KML / GPX in <b>Lot &amp; ROW Analysis</b> and link it to this record; the pin moves to the axis.</li>
+                <li><b className="text-text-400">3 · Barangay centroid{barangays.length > 1 ? "s (averaged)" : ""}</b> — the fallback when no field capture exists yet.</li>
+              </ol>
             </div>
           </div>
 

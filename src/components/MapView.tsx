@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap, useMapEvents, ScaleControl, Tooltip } from "react-leaflet";
 import type { Road } from "../data/roads";
 import { barangayCentroids } from "../data/roads";
-import { statusOf, typeShort, fmtPesoM, projectPoint, barangayLabel } from "../data/registry";
-import { useStore } from "../state/store";
+import { statusOf, typeShort, fmtPesoM, barangayLabel } from "../data/registry";
+import { useStore, recordPoint, pinSourceOf } from "../state/store";
 import { conditionMeta, classMeta, fmtCoord, prefersReduced } from "./ui";
 import { IconCrosshair, IconCompass, IconPlus } from "./icons";
 
@@ -68,14 +68,14 @@ export default function MapView({ focus, roads, onLocate }: {
           records.map((p) => {
             const meta = statusOf(p);
             const impl = contractors.find((c) => c.id === p.implementorId);
-            const pt = projectPoint(p);
-            const ev = p.location.evidence;
+            const pt = recordPoint(p);
+            const pin = pinSourceOf(p);
             return (
               <CircleMarker
                 key={p.id}
                 center={pt}
                 radius={8}
-                pathOptions={{ color: meta.color, weight: 2.5, fillColor: meta.color, fillOpacity: 0.28, dashArray: ev ? undefined : "2 3" }}
+                pathOptions={{ color: meta.color, weight: 2.5, fillColor: meta.color, fillOpacity: 0.28, dashArray: pin.kind === "barangay" ? "2 3" : undefined }}
               >
                 {p.percent < 100 && p.percent > 0 && (
                   <CircleMarker center={pt} radius={13} interactive={false} pathOptions={{ color: meta.ring, weight: 1.5, fillOpacity: 0, dashArray: "3 5" }} />
@@ -114,7 +114,9 @@ export default function MapView({ focus, roads, onLocate }: {
                       </div>
                     </div>
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: 8.5, color: "#7d9183", marginTop: 10, letterSpacing: "0.06em" }}>
-                      {ev ? <>PINNED VIA {ev.source.toUpperCase()} — {ev.ref}</> : <>PIN AT BARANGAY CENTROID — NO FIELD CAPTURE YET</>}
+                      {pin.kind === "geotag" && <>PINNED VIA GEOTAGGED IMAGE — EXIF GPS</>}
+                      {pin.kind === "centerline" && <>PINNED VIA LINKED CENTERLINE — LOT &amp; ROW</>}
+                      {pin.kind === "barangay" && <>PIN AT BARANGAY CENTROID — NO FIELD CAPTURE YET</>}
                       {" · "}{fmtCoord(pt[0])}N {fmtCoord(pt[1])}E
                     </p>
                   </div>
