@@ -239,6 +239,12 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
       actualStart: f.actualStart || null, actualCompletion: f.actualCompletion || null,
       percent: f.percent, notes: f.notes,
       treatment, roadId: roadId || undefined,
+      /* detail records live on the saved row — never clobbered by the encoder */
+      technical: editing?.technical ?? null,
+      revision: editing?.revision ?? null,
+      actual: editing?.actual ?? null,
+      suspensions: editing?.suspensions ?? [],
+      variations: editing?.variations ?? [],
     };
     if (editing) {
       updateRecord(editing.id, base);

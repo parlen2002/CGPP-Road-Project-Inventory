@@ -9,6 +9,11 @@ import {
 } from "../data/cadastre";
 import { seedBarangays, type Barangay } from "../data/barangays";
 import { seedRoadsReg, suggestRoadId, type RoadReg } from "../data/roadsRegistry";
+import {
+  emptySpecs,
+  type TechSpecs, type RevisionMeta, type ActualMeta,
+  type SuspensionOrder, type VariationOrder,
+} from "../data/specs";
 
 export interface Snapshot {
   records: ProjectRecord[];
@@ -21,7 +26,17 @@ export interface Snapshot {
   admin: boolean;            // program-admin mode gates removal of uploaded files
 }
 
-const KEY = "rpis-store-v8"; // v8 = road & street registry + project treatments; older snapshots are reseeded
+const KEY = "rpis-store-v9"; // v9 = technical/revision/actual specs + suspension & variation orders; older snapshots are reseeded
+
+/* guarantee every loaded record carries its detail collections */
+const normalizeRecord = (r: ProjectRecord): ProjectRecord => ({
+  ...r,
+  technical: r.technical ?? null,
+  revision: r.revision ?? null,
+  actual: r.actual ?? null,
+  suspensions: r.suspensions ?? [],
+  variations: r.variations ?? [],
+});
 
 function load(): Snapshot {
   try {
@@ -37,11 +52,11 @@ function load(): Snapshot {
         Array.isArray(p.parcels) && Array.isArray(p.centerlines) &&
         Array.isArray(p.barangays) && Array.isArray(p.roadsReg) &&
         typeof p.admin === "boolean"
-      ) return p;
+      ) return { ...p, records: p.records.map(normalizeRecord) };
     }
   } catch { /* corrupted storage → fall back to seed */ }
   return {
-    records: seedRecords, contractors: seedContractors, engineers: seedEngineers,
+    records: seedRecords.map(normalizeRecord), contractors: seedContractors, engineers: seedEngineers,
     parcels: generateSampleCadastral(), centerlines: seedCenterlines,
     barangays: seedBarangays, roadsReg: seedRoadsReg, admin: false,
   };
@@ -85,6 +100,63 @@ export function updateRecord(id: string, patch: Partial<Omit<ProjectRecord, "id"
 
 export function deleteRecord(id: string) {
   mutate({ ...snapshot, records: snapshot.records.filter((r) => r.id !== id) });
+}
+
+/* ---------------- spec variants (technical / revision / actual) ---------------- */
+
+function patchOne(id: string, patch: Partial<Omit<ProjectRecord, "id">>) {
+  mutate({ ...snapshot, records: snapshot.records.map((r) => (r.id === id ? { ...r, ...patch } : r)) });
+}
+
+export function setSpecVariant(
+  recordId: string,
+  variant: "technical" | "revision" | "actual",
+  value: TechSpecs | { specs: TechSpecs; meta: RevisionMeta } | { specs: TechSpecs; meta: ActualMeta } | null,
+) {
+  patchOne(recordId, { [variant]: value } as Partial<Omit<ProjectRecord, "id">>);
+}
+
+export const specOf = (r: ProjectRecord | undefined, v: "technical" | "revision" | "actual"): TechSpecs | null => {
+  if (!r) return null;
+  if (v === "technical") return r.technical ?? null;
+  return r[v]?.specs ?? null;
+};
+
+/* ---------------- suspension & variation orders ---------------- */
+
+function nextOrderId(prefix: string, existing: string[]): string {
+  const n = existing
+    .map((x) => parseInt(x.replace(`${prefix}-`, ""), 10))
+    .filter((x) => !Number.isNaN(x))
+    .reduce((a, b) => Math.max(a, b), 0);
+  return `${prefix}-${String(n + 1).padStart(3, "0")}`;
+}
+
+export function addOrder(recordId: string, kind: "so" | "vo", order: Omit<SuspensionOrder, "id"> | Omit<VariationOrder, "id">): string {
+  const rec = snapshot.records.find((r) => r.id === recordId);
+  if (!rec) return "";
+  if (kind === "so") {
+    const id = nextOrderId("SO", rec.suspensions.map((o) => o.id));
+    patchOne(recordId, { suspensions: [...rec.suspensions, { ...(order as Omit<SuspensionOrder, "id">), id }] });
+    return id;
+  }
+  const id = nextOrderId("VO", rec.variations.map((o) => o.id));
+  patchOne(recordId, { variations: [...rec.variations, { ...(order as Omit<VariationOrder, "id">), id }] });
+  return id;
+}
+
+export function updateOrder(recordId: string, kind: "so" | "vo", order: SuspensionOrder | VariationOrder) {
+  const rec = snapshot.records.find((r) => r.id === recordId);
+  if (!rec) return;
+  if (kind === "so") patchOne(recordId, { suspensions: rec.suspensions.map((o) => (o.id === order.id ? (order as SuspensionOrder) : o)) });
+  else patchOne(recordId, { variations: rec.variations.map((o) => (o.id === order.id ? (order as VariationOrder) : o)) });
+}
+
+export function deleteOrder(recordId: string, kind: "so" | "vo", orderId: string) {
+  const rec = snapshot.records.find((r) => r.id === recordId);
+  if (!rec) return;
+  if (kind === "so") patchOne(recordId, { suspensions: rec.suspensions.filter((o) => o.id !== orderId) });
+  else patchOne(recordId, { variations: rec.variations.filter((o) => o.id !== orderId) });
 }
 
 /* ---------------- attachments (geotagged images / PDFs) ---------------- */

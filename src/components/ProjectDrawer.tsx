@@ -12,6 +12,7 @@ import { CornerTicks } from "./ui";
 import { IconClose, IconPin, IconArrow, IconUser, IconCalendar, IconEdit, IconTrash, IconSave, IconRoad } from "./icons";
 import ROWImpact from "./ROWImpact";
 import DocumentIntake from "./DocumentIntake";
+import RecordDetails from "./recordDetails";
 
 function KV({ k, v, mono = true }: { k: string; v: React.ReactNode; mono?: boolean }) {
   return (
@@ -312,6 +313,9 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
               </button>
             </div>
           </div>
+
+          {/* linked detail records — technical / revision / actual + VO & SO */}
+          <RecordDetails record={record} />
 
           {/* supporting documents — staging intake, admin-gated removal */}
           <DocumentIntake record={record} />
