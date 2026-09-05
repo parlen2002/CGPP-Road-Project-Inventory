@@ -336,6 +336,20 @@ const SEED_EXTRAS: Record<string, SeedExtras> = {
     suspensions: [],
     variations: [],
   },
+  "RPIS-2025-021": {
+    technical: {
+      road: { widthM: "", lanes: "", pavement: "", pavementCm: "", subbaseCm: "" },
+      shoulder: { widthM: "", type: "", thicknessCm: "" },
+      sidewalk: { widthM: "", thicknessCm: "", finish: "", ramps: "" },
+      drainage: { type: "", sizeM: "", lengthM: "" },
+      slope: { type: "", heightM: "", lengthM: "" },
+      streetlights: { poles: "54", poleHeightM: "9.0", fixture: "LED 100W", spacingM: "35", control: "Photocell dusk-to-dawn", power: "PPC-ELCO feed" },
+    },
+    revision: null,
+    actual: null,
+    suspensions: [],
+    variations: [],
+  },
   "RPIS-2024-052": {
     technical: {
       road: { widthM: "", lanes: "", pavement: "", pavementCm: "", subbaseCm: "" },

@@ -26,14 +26,19 @@ export interface Snapshot {
   admin: boolean;            // program-admin mode gates removal of uploaded files
 }
 
-const KEY = "rpis-store-v9"; // v9 = technical/revision/actual specs + suspension & variation orders; older snapshots are reseeded
+const KEY = "rpis-store-v10"; // v10 = street lights section in spec variants; older snapshots are reseeded
+
+/* backfill sections added after a spec was first saved (e.g. street lights) */
+const EMPTY_LITE = { poles: "", poleHeightM: "", fixture: "", spacingM: "", control: "", power: "" };
+const normSpecs = (s: ProjectRecord["technical"]): ProjectRecord["technical"] =>
+  s ? { ...s, streetlights: s.streetlights ?? EMPTY_LITE } : null;
 
 /* guarantee every loaded record carries its detail collections */
 const normalizeRecord = (r: ProjectRecord): ProjectRecord => ({
   ...r,
-  technical: r.technical ?? null,
-  revision: r.revision ?? null,
-  actual: r.actual ?? null,
+  technical: normSpecs(r.technical),
+  revision: r.revision ? { ...r.revision, specs: normSpecs(r.revision.specs)! } : null,
+  actual: r.actual ? { ...r.actual, specs: normSpecs(r.actual.specs)! } : null,
   suspensions: r.suspensions ?? [],
   variations: r.variations ?? [],
 });
