@@ -36,6 +36,9 @@ export interface Attachment {
   lng: number | null;
   thumb?: string;       // small dataURL preview — images only
   uploadedAt: string;   // ISO datetime
+  /** untouched original bytes (base64 data URL) — EXIF stays intact for download / print-out */
+  raw?: string;
+  mime?: string;
 }
 
 export interface ProjectLocation {

@@ -81,6 +81,17 @@ function rationals(dv: DataView, t0: number, entry: number, le: boolean): number
   return out;
 }
 
+/* ---------------- raw byte reader (untouched original, EXIF intact) ---------------- */
+
+export function readDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result));
+    fr.onerror = () => reject(new Error("read failed"));
+    fr.readAsDataURL(file);
+  });
+}
+
 /* ---------------- thumbnail maker (persisted preview) ---------------- */
 
 export function makeThumb(file: File, max = 150): Promise<string | null> {

@@ -1,23 +1,29 @@
 /* ─────────────────────────────────────────────────────────────
    SUPPORTING-DOCUMENT INTAKE
    Staging queue → preview → replace/remove → upload.
-   After upload, only the program ADMIN may remove a file
-   (the admin gate lives in the store and is toggled in the TopBar).
+   The ORIGINAL file bytes are archived untouched (base64) so the
+   raw EXIF metadata stays intact — every file can be downloaded
+   or saved again for separate print-out with the project record.
+   After upload, only the program ADMIN may remove a file.
    Geotagged images → EXIF GPS + thumbnail.  PDFs → document tile.
    ────────────────────────────────────────────────────────────── */
 
 import { useRef, useState } from "react";
 import type { ProjectRecord, Attachment } from "../data/registry";
 import { useStore, addAttachment, deleteAttachment, nextAttachmentId } from "../state/store";
-import { parseExifGPS, makeThumb } from "../lib/exif";
+import { parseExifGPS, makeThumb, readDataURL } from "../lib/exif";
 import { toast } from "./toast";
-import { IconCamera, IconPlus, IconTrash, IconUpload, IconLock } from "./icons";
+import { IconCamera, IconPlus, IconTrash, IconUpload, IconLock, IconDownload } from "./icons";
+
+/** files above this size are kept as metadata + thumbnail only (localStorage budget) */
+const MAX_RAW_BYTES = 3.5 * 1024 * 1024;
 
 interface Staged {
   key: string;       // unique slot id
   file: File;
   kind: "image" | "pdf";
-  preview: string | null; // object-URL for images
+  raw: string | null;  // untouched original bytes (data URL) — null when over the archive cap
+  reading?: boolean;
 }
 
 let slotSeq = 0;
@@ -31,12 +37,21 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
   const replaceKey = useRef<string | null>(null);
 
   const attachments = record.attachments ?? [];
+  const archivedBytes = attachments.reduce((s, a) => s + (a.raw ? a.raw.length : 0), 0);
 
   /* ---------- staging ---------- */
 
+  const stage = async (file: File, key: string, kind: "image" | "pdf") => {
+    const item: Staged = { key, file, kind, raw: null, reading: true };
+    setStaged((s) => [...s, item]);
+    // archive the untouched bytes — EXIF is never decoded/re-encoded
+    const raw = file.size <= MAX_RAW_BYTES ? await readDataURL(file) : null;
+    setStaged((s) => s.map((x) => (x.key === key ? { ...x, raw, reading: false } : x)));
+    if (!raw) toast(file.name, "info", `over ${(MAX_RAW_BYTES / 1048576).toFixed(1)} MB — kept as metadata + thumbnail only`);
+  };
+
   const addFiles = (files: FileList | null) => {
     if (!files?.length) return;
-    const next: Staged[] = [];
     Array.from(files).forEach((file) => {
       const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
       const isImg = file.type.startsWith("image/");
@@ -44,19 +59,11 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
         toast(file.name, "info", "Only geotagged images or PDFs are accepted");
         return;
       }
-      const key = `slot-${++slotSeq}`;
-      next.push({ key, file, kind: isPdf ? "pdf" : "image", preview: isImg ? URL.createObjectURL(file) : null });
+      void stage(file, `slot-${++slotSeq}`, isPdf ? "pdf" : "image");
     });
-    if (next.length) setStaged((s) => [...s, ...next]);
   };
 
-  const removeStaged = (key: string) => {
-    setStaged((s) => {
-      const it = s.find((x) => x.key === key);
-      if (it?.preview) URL.revokeObjectURL(it.preview);
-      return s.filter((x) => x.key !== key);
-    });
-  };
+  const removeStaged = (key: string) => setStaged((s) => s.filter((x) => x.key !== key));
 
   const replaceStaged = (key: string) => {
     replaceKey.current = key;
@@ -71,24 +78,46 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     const isImg = file.type.startsWith("image/");
     if (!isPdf && !isImg) { toast(file.name, "info", "Only geotagged images or PDFs are accepted"); return; }
-    setStaged((s) => s.map((x) => {
-      if (x.key !== key) return x;
-      if (x.preview) URL.revokeObjectURL(x.preview);
-      return { key, file, kind: isPdf ? "pdf" : "image", preview: isImg ? URL.createObjectURL(file) : null };
-    }));
+    setStaged((s) => s.filter((x) => x.key !== key));
+    void stage(file, key, isPdf ? "pdf" : "image");
+  };
+
+  /* ---------- downloads (raw bytes, EXIF intact) ---------- */
+
+  const downloadStaged = (s: Staged) => {
+    const u = URL.createObjectURL(s.file);
+    const a = document.createElement("a");
+    a.href = u;
+    a.download = s.file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  };
+
+  const downloadSaved = (att: Attachment) => {
+    if (!att.raw) {
+      toast(att.name, "info", "raw bytes not archived locally — this file was over the archive cap");
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = att.raw;
+    a.download = att.name;
+    a.click();
+    toast(att.name, "info", "original saved — EXIF metadata intact");
   };
 
   /* ---------- upload (commit staged → record) ---------- */
 
   const upload = async () => {
-    if (!staged.length) return;
+    if (!staged.length || staged.some((s) => s.reading)) return;
     setBusy(true);
-    let geo = 0, pdf = 0, noGps = 0;
+    let geo = 0, pdf = 0, noGps = 0, rawN = 0;
     for (const s of staged) {
       const sizeKB = Math.max(1, Math.round(s.file.size / 1024));
       const now = new Date().toISOString();
+      const mime = s.file.type || (s.kind === "pdf" ? "application/pdf" : "image/jpeg");
+      if (s.raw) rawN++;
       if (s.kind === "pdf") {
-        addAttachment(record.id, { id: nextAttachmentId(record.id), kind: "PDF", name: s.file.name, sizeKB, lat: null, lng: null, uploadedAt: now });
+        addAttachment(record.id, { id: nextAttachmentId(record.id), kind: "PDF", name: s.file.name, sizeKB, lat: null, lng: null, uploadedAt: now, raw: s.raw ?? undefined, mime });
         pdf++;
       } else {
         const gps = parseExifGPS(await s.file.arrayBuffer());
@@ -96,11 +125,11 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
         addAttachment(record.id, {
           id: nextAttachmentId(record.id), kind: "Geotagged Image", name: s.file.name, sizeKB,
           lat: gps ? gps[0] : null, lng: gps ? gps[1] : null, thumb, uploadedAt: now,
+          raw: s.raw ?? undefined, mime,
         });
         if (gps) geo++; else noGps++;
       }
     }
-    staged.forEach((s) => { if (s.preview) URL.revokeObjectURL(s.preview); });
     setStaged([]);
     setBusy(false);
     toast(
@@ -110,6 +139,7 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
         geo ? `${geo} geotagged (EXIF GPS locked)` : "",
         noGps ? `${noGps} image without GPS` : "",
         pdf ? `${pdf} PDF document${pdf > 1 ? "s" : ""}` : "",
+        rawN ? `${rawN} raw archive${rawN > 1 ? "s" : ""} kept intact` : "",
       ].filter(Boolean).join(" · ") || undefined
     );
   };
@@ -138,15 +168,25 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
             <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {staged.map((s) => (
                 <li key={s.key} className="group/stage relative rounded-[3px] border border-line-400 bg-paper-100 p-1.5">
-                  {s.kind === "image" && s.preview
-                    ? <img src={s.preview} alt={s.file.name} className="h-16 w-full rounded-[2px] border border-ink-800 object-cover" />
+                  {s.kind === "image" && s.raw
+                    ? <img src={s.raw} alt={s.file.name} className="h-16 w-full rounded-[2px] border border-ink-800 object-cover" />
                     : (
                       <div className="grid h-16 w-full place-items-center rounded-[2px] border border-ink-800 bg-ink-900">
-                        <span className="font-display text-[15px] font-bold text-coral-400">PDF</span>
+                        <span className={`font-display text-[15px] font-bold ${s.reading ? "animate-pulse text-paper-300/50" : "text-coral-400"}`}>
+                          {s.reading ? "…" : "PDF"}
+                        </span>
                       </div>
                     )}
                   <p className="mt-1 truncate font-mono text-[8.5px] text-text-600" title={s.file.name}>{s.file.name}</p>
+                  <p className="font-mono text-[8px] tracking-wider text-text-400 uppercase">
+                    {s.raw ? "raw · EXIF intact" : s.reading ? "reading bytes…" : "metadata only"}
+                  </p>
                   <div className="mt-1 flex items-center gap-1">
+                    <button
+                      onClick={() => downloadStaged(s)}
+                      className="cursor-pointer rounded-[2px] border border-line-400 p-1 text-text-400 transition-colors hover:border-pine-600 hover:text-pine-600"
+                      title="Download / save original (EXIF intact)"
+                    ><IconDownload size={11} /></button>
                     <button
                       onClick={() => replaceStaged(s.key)}
                       className="flex-1 cursor-pointer rounded-[2px] border border-line-400 px-1 py-0.5 font-mono text-[8px] font-bold tracking-wider text-text-600 uppercase transition-colors hover:border-teal-500 hover:text-teal-500"
@@ -164,13 +204,13 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
             <div className="mt-3 flex items-center gap-2">
               <button
                 onClick={() => void upload()}
-                disabled={busy}
+                disabled={busy || staged.some((s) => s.reading)}
                 className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[3px] bg-amber-500 py-2 font-mono text-[9.5px] font-bold tracking-[0.14em] text-ink-950 uppercase transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <IconUpload size={13} /> {busy ? "Processing EXIF…" : `Upload ${staged.length} file${staged.length > 1 ? "s" : ""}`}
               </button>
               <button
-                onClick={() => { staged.forEach((s) => s.preview && URL.revokeObjectURL(s.preview)); setStaged([]); }}
+                onClick={() => setStaged([])}
                 className="cursor-pointer rounded-[3px] border border-line-400 px-3 py-2 font-mono text-[9.5px] font-bold tracking-[0.14em] text-text-600 uppercase transition-colors hover:border-coral-500 hover:text-coral-600"
               >Clear</button>
             </div>
@@ -182,6 +222,7 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
           <p className="rounded-[3px] border border-dashed border-line-400 px-3 py-3 font-mono text-[9.5px] leading-relaxed text-text-400">
             No files yet. A geotagged photo sets the exact project station from its EXIF GPS;
             PDFs (plans, reports, bid documents) file into the project folder as supporting documents.
+            Originals are archived byte-for-byte — download them anytime for print-out.
           </p>
         )}
         {attachments.length > 0 && (
@@ -201,9 +242,17 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
                           ? <span className="rounded-[3px] bg-pine-600/15 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-pine-600 uppercase">Geotag · {a.lat.toFixed(5)}N {a.lng!.toFixed(5)}E</span>
                           : <span className="rounded-[3px] bg-coral-500/15 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-coral-600 uppercase">Image · no GPS metadata</span>)
                       : <span className="rounded-[3px] bg-ink-900/8 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-text-600 uppercase">Supporting doc</span>}
+                    {a.raw
+                      ? <span className="rounded-[3px] bg-teal-500/15 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-teal-500 uppercase" title="Original bytes archived — EXIF intact">RAW · EXIF intact</span>
+                      : <span className="rounded-[3px] bg-ink-900/8 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-text-400 uppercase" title="Over the local archive cap — metadata and thumbnail only">metadata only</span>}
                     <span className="font-mono text-[8.5px] text-text-400">{a.sizeKB >= 1024 ? `${(a.sizeKB / 1024).toFixed(1)} MB` : `${a.sizeKB} KB`}</span>
                   </div>
                 </div>
+                <button
+                  onClick={() => downloadSaved(a)}
+                  className="shrink-0 cursor-pointer p-1.5 text-text-400 transition-colors hover:text-pine-600"
+                  title={a.raw ? "Download / save original (EXIF intact)" : "Raw bytes not archived locally"}
+                ><IconDownload size={14} /></button>
                 {admin ? (
                   <button
                     onClick={() => { deleteAttachment(record.id, a.id); toast(a.name, "deleted", "file removed from project folder"); }}
@@ -227,6 +276,9 @@ export default function DocumentIntake({ record }: { record: ProjectRecord }) {
         >
           <IconPlus size={13} /> Add geotagged images / PDFs <span className="opacity-60">(multiple)</span>
         </button>
+        <p className="mt-2 text-center font-mono text-[8.5px] leading-relaxed tracking-[0.08em] text-text-400 uppercase">
+          Originals archived byte-for-byte (EXIF intact) up to 3.5 MB each · {archivedBytes ? `${(archivedBytes * 0.75 / 1048576).toFixed(1)} MB in local archive` : "no raw archive yet"} · download for separate print-out
+        </p>
       </div>
     </div>
   );
