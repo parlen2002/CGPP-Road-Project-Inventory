@@ -6,9 +6,10 @@ import { useState, useEffect } from "react";
 import {
   useStore, updateRecord, recordPoint, pinSourceOf,
 } from "../state/store";
+import { TREATMENT_COLOR } from "../data/roads";
 import { toast } from "./toast";
 import { CornerTicks } from "./ui";
-import { IconClose, IconPin, IconArrow, IconUser, IconCalendar, IconEdit, IconTrash, IconSave } from "./icons";
+import { IconClose, IconPin, IconArrow, IconUser, IconCalendar, IconEdit, IconTrash, IconSave, IconRoad } from "./icons";
 import ROWImpact from "./ROWImpact";
 import DocumentIntake from "./DocumentIntake";
 
@@ -29,9 +30,10 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
   onDelete?: (r: ProjectRecord) => void;
   onOpenCadastre?: () => void;
 }) {
-  const { contractors, engineers } = useStore();
+  const { contractors, engineers, roadsReg } = useStore();
   const impl = record ? contractors.find((c) => c.id === record.implementorId) : undefined;
   const engr = record ? engineers.find((e) => e.id === record.inchargeId) : undefined;
+  const linkedRoad = record?.roadId ? roadsReg.find((r) => r.id === record.roadId) : undefined;
 
   /* local draft — edits stay here until the user presses Save/Update */
   const [draft, setDraft] = useState(() => ({
@@ -139,7 +141,28 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             <KV k="Source of fund" v={record.fund.replace(" Development Fund", " Dev Fund")} />
             <KV k="Object acct code" v={record.objectCode} />
             <KV k="File folder no." v={record.folderNo} />
-            <KV k="Mode" v={record.mode.replace("By ", "")} />
+            <KV k="Road treatment" v={
+              record.treatment ? (
+                <span className="inline-flex items-center gap-1 rounded-[3px] px-1 py-0.5 font-mono text-[9px] font-bold tracking-wider uppercase"
+                  style={{ color: TREATMENT_COLOR[record.treatment], background: `${TREATMENT_COLOR[record.treatment]}18` }}>
+                  <i className="h-1 w-1 rounded-full" style={{ background: TREATMENT_COLOR[record.treatment] }} />
+                  {record.treatment}
+                </span>
+              ) : <span className="text-text-400">— non-pavement</span>
+            } />
+          </div>
+
+          {/* linked road / street — the proper name this work is performed on */}
+          <div className="mt-3 flex items-center gap-2.5 rounded-[3px] border border-line-300 bg-paper-100 px-3.5 py-2.5">
+            <IconRoad size={15} className="shrink-0 text-pine-600" />
+            {linkedRoad ? (
+              <>
+                <p className="min-w-0 truncate text-[12.5px] font-bold text-ink-900">{linkedRoad.name}</p>
+                <span className="ml-auto shrink-0 rounded-[3px] bg-ink-900 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-amber-400 uppercase">{linkedRoad.id}</span>
+              </>
+            ) : (
+              <p className="font-mono text-[10px] tracking-wider text-text-400 uppercase">No linked road — encode one in the Road Registry</p>
+            )}
           </div>
 
           {/* financials */}
@@ -195,8 +218,8 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             </div>
           </div>
 
-          {/* FK cards */}
-          <div className="mt-4 grid gap-3">
+          {/* FK cards — uniform structure, stacked */}
+          <div className="mt-4 grid items-stretch gap-3">
             <div className="rounded-[3px] border border-line-300 bg-paper-100 p-3.5">
               <p className="mb-2 flex items-center gap-2 font-mono text-[9px] tracking-[0.18em] text-text-400 uppercase">
                 <IconUser size={12} /> Project implementor <span className="text-teal-500">FK → {record.implementorId}</span>

@@ -7,6 +7,7 @@ import Inventory from "./pages/Inventory";
 import Projects from "./pages/Projects";
 import Analytics from "./pages/Analytics";
 import LotAnalysis from "./pages/LotAnalysis";
+import Roads from "./pages/Roads";
 import Barangays from "./pages/Barangays";
 import System from "./pages/System";
 import { statusOf } from "./data/registry";
@@ -125,6 +126,7 @@ export default function App() {
           )}
           {page === "projects" && <Projects onLocate={locate} onOpenRoad={openInventory} onOpenCadastre={openCadastre} />}
           {page === "cadastre" && <LotAnalysis onLocate={locate} />}
+          {page === "roads" && <Roads onLocate={locate} />}
           {page === "barangays" && <Barangays onLocate={locate} />}
           {page === "analytics" && <Analytics />}
           {page === "system" && <System />}

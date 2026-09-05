@@ -4,7 +4,7 @@ import {
   PROJECT_TYPES, MODES, FUNDS, TYPE_OBJECT_CODE, PCAB_CATEGORIES,
   ENGINEER_POSITIONS, ENGINEER_UNITS,
   type ProjectType, type ModeOfImplementation, type ProjectRecord,
-  type Contractor, type Engineer,
+  type Contractor, type Engineer, daysBetween,
 } from "../data/registry";
 import type { Treatment } from "../data/roads";
 import { TREATMENT_ORDER } from "../data/roadsRegistry";
@@ -251,24 +251,6 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
     onClose();
   };
 
-  const FkSelect = ({ label, value, onChange, options, encode, warn }: {
-    label: string; value: string; onChange: (v: string) => void;
-    options: { id: string; name: string; sub: string }[]; encode: () => void; warn?: boolean;
-  }) => (
-    <div>
-      <div className="flex items-center justify-between">
-        <label className={`${labelCls} ${warn ? "text-coral-600" : ""}`}>{label} (FK) *</label>
-        <button onClick={encode} className="mb-1 flex cursor-pointer items-center gap-1 font-mono text-[9px] font-bold tracking-wider text-pine-600 uppercase transition-colors hover:text-pine-500">
-          <IconPlus size={9} /> Encode new
-        </button>
-      </div>
-      <select className={`${inputCls} ${warn ? "border-coral-500 ring-1 ring-coral-500/40" : ""}`} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{warn ? "⚠ previous profile deleted — relink" : "— select —"}</option>
-        {options.map((o) => <option key={o.id} value={o.id}>{o.name} · {o.sub}</option>)}
-      </select>
-    </div>
-  );
-
   return (
     <>
       <Modal
@@ -333,32 +315,42 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
             </p>
           </div>
 
-          {/* road treatment — the pavement stage this work produces */}
-          <div>
-            <label className={labelCls}>Road treatment</label>
-            <select className={inputCls} value={treatment ?? ""} onChange={(e) => setTreatment((e.target.value || null) as Treatment | null)}>
-              <option value="">— none (non-pavement work) —</option>
-              {TREATMENT_ORDER.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <FkSelect
-            label="Project implementor"
-            value={f.implementorId} onChange={(v) => setF({ ...f, implementorId: v })}
-            options={contractors.map((c) => ({ id: c.id, name: c.name, sub: c.pcab === "—" ? "Force Acct" : c.pcab }))}
-            encode={() => setNested("ctr")}
-            warn={editing !== null && f.implementorId === ""}
-          />
-          <FkSelect
-            label="Project in-charge"
-            value={f.inchargeId} onChange={(v) => setF({ ...f, inchargeId: v })}
-            options={engineers.map((e) => ({ id: e.id, name: e.name, sub: e.position }))}
-            encode={() => setNested("eng")}
-            warn={editing !== null && f.inchargeId === ""}
-          />
-          <div>
-            <label className={labelCls}>Linear length (m)</label>
-            <input className={inputCls} value={f.linearLength} onChange={(e) => setF({ ...f, linearLength: e.target.value })} inputMode="decimal" />
+          {/* ── works & responsibility — one aligned band ── */}
+          <div className="col-span-2 grid grid-cols-1 gap-3 rounded-[4px] border border-line-300 bg-white/45 p-3 sm:col-span-3 sm:grid-cols-3">
+            <div className="flex flex-col">
+              <label className={`${labelCls} min-h-[15px]`}>Road treatment</label>
+              <select className={inputCls} value={treatment ?? ""} onChange={(e) => setTreatment((e.target.value || null) as Treatment | null)}>
+                <option value="">— none · non-pavement —</option>
+                {TREATMENT_ORDER.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <p className="mt-1 font-mono text-[8.5px] tracking-wider text-text-400 uppercase">pavement stage → inventory ladder</p>
+            </div>
+            <div className="flex flex-col">
+              <label className={`${labelCls} min-h-[15px] ${editing !== null && f.implementorId === "" ? "text-coral-600" : ""}`}>Project implementor (FK) *</label>
+              <select
+                className={`${inputCls} ${editing !== null && f.implementorId === "" ? "border-coral-500 ring-1 ring-coral-500/40" : ""}`}
+                value={f.implementorId} onChange={(e) => setF({ ...f, implementorId: e.target.value })}
+              >
+                <option value="">{editing !== null && f.implementorId === "" ? "⚠ relink required" : "— select —"}</option>
+                {contractors.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.pcab === "—" ? "Force Acct" : c.pcab}</option>)}
+              </select>
+              <button type="button" onClick={() => setNested("ctr")} className="mt-1 flex cursor-pointer items-center gap-1 self-start font-mono text-[8.5px] font-bold tracking-wider text-pine-600 uppercase transition-colors hover:text-pine-500">
+                <IconPlus size={8} /> Encode new contractor
+              </button>
+            </div>
+            <div className="flex flex-col">
+              <label className={`${labelCls} min-h-[15px] ${editing !== null && f.inchargeId === "" ? "text-coral-600" : ""}`}>Project in-charge (FK) *</label>
+              <select
+                className={`${inputCls} ${editing !== null && f.inchargeId === "" ? "border-coral-500 ring-1 ring-coral-500/40" : ""}`}
+                value={f.inchargeId} onChange={(e) => setF({ ...f, inchargeId: e.target.value })}
+              >
+                <option value="">{editing !== null && f.inchargeId === "" ? "⚠ relink required" : "— select —"}</option>
+                {engineers.map((e) => <option key={e.id} value={e.id}>{e.name} · {e.position}</option>)}
+              </select>
+              <button type="button" onClick={() => setNested("eng")} className="mt-1 flex cursor-pointer items-center gap-1 self-start font-mono text-[8.5px] font-bold tracking-wider text-pine-600 uppercase transition-colors hover:text-pine-500">
+                <IconPlus size={8} /> Encode new employee
+              </button>
+            </div>
           </div>
 
           {/* ── LOCATION · BARANGAY-BASED ── */}
@@ -399,6 +391,10 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
           </div>
 
           <div>
+            <label className={labelCls}>Linear length (m)</label>
+            <input className={inputCls} value={f.linearLength} onChange={(e) => setF({ ...f, linearLength: e.target.value })} inputMode="decimal" />
+          </div>
+          <div>
             <label className={labelCls}>Contracted amount (₱)</label>
             <input className={inputCls} value={f.contractedAmount} onChange={(e) => setF({ ...f, contractedAmount: e.target.value })} inputMode="numeric" />
           </div>
@@ -422,6 +418,19 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
           <div>
             <label className={labelCls}>Actual completion</label>
             <input type="date" className={inputCls} value={f.actualCompletion} onChange={(e) => setF({ ...f, actualCompletion: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Actual duration · auto</label>
+            <div className={`${inputCls} flex items-center bg-paper-200/80 font-semibold text-ink-900`}>
+              {f.actualStart && f.actualCompletion
+                ? (() => {
+                    const d = daysBetween(f.actualStart, f.actualCompletion);
+                    return d >= 60 ? `${Math.floor(d / 30)} mo ${d % 30} d` : `${d} d`;
+                  })()
+                : f.actualStart
+                  ? "ongoing"
+                  : "—"}
+            </div>
           </div>
 
           {/* completion % is only encoded when updating — new projects start at 0 */}

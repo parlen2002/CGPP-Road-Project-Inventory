@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
-import { IconMap, IconRoad, IconLayers, IconChart, IconStack, IconParcels, IconBarangay } from "./icons";
+import { IconMap, IconRoad, IconLayers, IconChart, IconStack, IconParcels, IconBarangay, IconStreet } from "./icons";
 import { cityRoads as roads } from "../data/roads";
 
-export type PageId = "overview" | "inventory" | "projects" | "cadastre" | "barangays" | "analytics" | "system";
+export type PageId = "overview" | "inventory" | "projects" | "cadastre" | "roads" | "barangays" | "analytics" | "system";
 
 const items: { id: PageId; label: string; icon: (p: { size?: number; className?: string }) => ReactNode; note: string }[] = [
   { id: "overview", label: "Overview", icon: (p) => <IconMap {...p} />, note: "MAP CONSOLE" },
   { id: "inventory", label: "Road Inventory", icon: (p) => <IconRoad {...p} />, note: `${roads.length} SEGMENTS` },
   { id: "projects", label: "Projects", icon: (p) => <IconLayers {...p} />, note: "21-FIELD REGISTRY" },
   { id: "cadastre", label: "Lot & ROW Analysis", icon: (p) => <IconParcels {...p} />, note: "CADASTRAL OVERLAY" },
+  { id: "roads", label: "Road Registry", icon: (p) => <IconStreet {...p} />, note: "STREET NAMING BASIS" },
   { id: "barangays", label: "Barangays", icon: (p) => <IconBarangay {...p} />, note: "ADMIN REGISTRY" },
   { id: "analytics", label: "Analytics", icon: (p) => <IconChart {...p} />, note: "FY 2019–2026" },
   { id: "system", label: "GIS Stack", icon: (p) => <IconStack {...p} />, note: "DJANGO 6.1" },

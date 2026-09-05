@@ -47,16 +47,22 @@ export default function Overview({ focus, onLocate, onOpenInventory }: {
     [records]
   );
 
-  const kpis: { label: string; node: React.ReactNode; sub: string; wide?: boolean }[] = [
+  const kpis: { label: string; node: React.ReactNode; sub: string; accent?: string }[] = [
     {
-      label: "City road network", wide: true,
+      label: "City road network",
       node: <CountUp value={totalNetworkKm} decimals={1} suffix=" km" />,
-      sub: `${roads.length} inventoried segments · WGS 84`,
+      sub: `${roads.length} segments · OCE jurisdiction`,
     },
     {
-      label: "Active projects",
+      label: "Registered projects",
+      node: <CountUp value={records.length} />,
+      sub: "project_records rows",
+    },
+    {
+      label: "Active works",
       node: <CountUp value={activeCount} />,
-      sub: `${records.length} registered total`,
+      sub: "ongoing + delayed on site",
+      accent: "#f0a32b",
     },
     {
       label: "Contracted value",
@@ -64,9 +70,16 @@ export default function Overview({ focus, onLocate, onOpenInventory }: {
       sub: "approved appropriations",
     },
     {
+      label: "Actual to date",
+      node: <CountUp value={totalActual / 1e6} decimals={1} prefix="₱" suffix="M" />,
+      sub: `${Math.round((totalActual / (totalContracted || 1)) * 100)}% of contracted`,
+      accent: "#f0a32b",
+    },
+    {
       label: "Weighted completion",
       node: <CountUp value={weightedPct} suffix="%" />,
-      sub: "slider-encoded progress",
+      sub: "by contracted value",
+      accent: "#2f9a70",
     },
   ];
 
@@ -78,23 +91,20 @@ export default function Overview({ focus, onLocate, onOpenInventory }: {
         subtitle="Live PostGIS view of CITY roads under OCE jurisdiction and registered road projects. Dashed grey alignments are national highways — DPWH-managed, kept for map context only. Stations are pinned from barangay coverage and supporting KML / GPX / geotag evidence."
       />
 
-      {/* KPI ledger strip */}
+      {/* KPI ledger strip — uniform cells, consistent hierarchy */}
       <Reveal className="mt-6">
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border-2 border-ink-800 bg-ink-800 lg:grid-cols-12">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border-2 border-ink-800 bg-ink-800 sm:grid-cols-3 xl:grid-cols-6">
           {kpis.map((k) => (
-            <div key={k.label} className={`bg-ink-900 px-5 py-4 transition-colors hover:bg-ink-850 ${k.wide ? "col-span-2 lg:col-span-3" : ""}`}>
-              <p className="font-mono text-[9.5px] tracking-[0.22em] text-paper-300/50 uppercase">{k.label}</p>
-              <p className="font-display mt-1 text-[40px] leading-none font-bold text-paper-100">{k.node}</p>
-              <p className="mt-1.5 font-mono text-[9px] tracking-[0.14em] text-amber-400/80 uppercase">{k.sub}</p>
+            <div key={k.label} className="group relative bg-ink-900 px-4 py-4 transition-colors hover:bg-ink-850">
+              <span
+                className="absolute top-0 left-0 h-[3px] w-0 bg-amber-500 transition-all duration-300 group-hover:w-full"
+                style={k.accent ? { background: k.accent } : undefined}
+              />
+              <p className="font-mono text-[9px] leading-tight tracking-[0.18em] text-paper-300/50 uppercase">{k.label}</p>
+              <p className="font-display mt-1.5 text-[30px] leading-none font-bold text-paper-100 xl:text-[32px]">{k.node}</p>
+              <p className="mt-1.5 truncate font-mono text-[8.5px] tracking-[0.12em] text-amber-400/80 uppercase" title={k.sub}>{k.sub}</p>
             </div>
           ))}
-          <div className="hidden bg-ink-900 px-5 py-4 transition-colors hover:bg-ink-850 lg:block">
-            <p className="font-mono text-[9.5px] tracking-[0.22em] text-paper-300/50 uppercase">Actual to date</p>
-            <p className="font-display mt-1 text-[40px] leading-none font-bold text-amber-400">
-              <CountUp value={totalActual / 1e6} decimals={1} prefix="₱" suffix="M" />
-            </p>
-            <p className="mt-1.5 font-mono text-[9px] tracking-[0.14em] text-paper-300/50 uppercase">{Math.round((totalActual / (totalContracted || 1)) * 100)}% of contracted</p>
-          </div>
         </div>
       </Reveal>
 
