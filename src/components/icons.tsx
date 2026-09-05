@@ -197,6 +197,13 @@ export const IconParcels = (p: P) => (
   </svg>
 );
 
+export const IconBarangay = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3.5 19.5 6.8v7.4L12 20.5l-7.5-6.3V6.8L12 3.5Z" />
+    <path d="M9.2 13.5v-3l2.8-2.3 2.8 2.3v3h-2v-2.2h-1.6v2.2h-2Z" />
+  </svg>
+);
+
 export const IconPlus = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 5v14M5 12h14" />

@@ -7,7 +7,6 @@ import {
   generateSampleCadastral, runROWAnalysis, seedCenterlines,
   type Parcel, type Centerline, type AffectedLot,
 } from "../data/cadastre";
-import { BARANGAY_POINTS } from "../data/roads";
 import {
   useStore, setParcels as storeSetParcels, setCenterlinesAll,
 } from "../state/store";
@@ -15,7 +14,6 @@ import { PageHeader, Reveal, CornerTicks, CountUp } from "../components/ui";
 import { toast } from "../components/toast";
 import ConfirmDialog from "../components/confirm";
 import { IconPin, IconEdit, IconTrash, IconDownload, IconPlus, IconCheck } from "../components/icons";
-import BarangayRegistry from "../components/BarangayRegistry";
 
 const BASEMAPS = {
   street: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", label: "OSM street", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' },
@@ -52,7 +50,7 @@ function DrawEvents({ active, onPoint, onCursor }: {
   return null;
 }
 
-type Tab = "cadastre" | "centerlines" | "affected" | "barangays";
+type Tab = "cadastre" | "centerlines" | "affected";
 
 export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, number], zoom?: number) => void }) {
   const { records, parcels: parcelsAll, centerlines, barangays } = useStore();
@@ -242,8 +240,8 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
       </Reveal>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-12">
-        {/* ─────────── MAP (hidden on the barangays tab to give the registry full width) ─────────── */}
-        {tab === "barangays" ? null : <div className="lg:col-span-7 xl:col-span-8">
+        {/* ─────────── MAP ─────────── */}
+        <div className="lg:col-span-7 xl:col-span-8">
           <Reveal className="lg:sticky lg:top-4">
             <div className="relative overflow-hidden rounded-[4px] border-2 border-ink-800">
               <CornerTicks />
@@ -254,11 +252,11 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
                 <DrawEvents active={!!drawing} onPoint={(p) => setDraft((d) => [...d, p])} onCursor={setCursor} />
                 {fitKey >= 0 && <FitBounds key={fitKey} points={fitPoints.length > 3 ? fitPoints : [CITY, [9.75, 118.75]]} />}
 
-                {/* barangay centroids */}
-                {layers.brgy && Object.entries(BARANGAY_POINTS).map(([name, pt]) => (
-                  <CircleMarker key={name} center={pt} radius={2.5}
+                {/* barangay centroids (live registry) */}
+                {layers.brgy && barangays.map((b) => (
+                  <CircleMarker key={b.id} center={[b.lat, b.lng]} radius={2.5}
                     pathOptions={{ color: "#175c43", weight: 1, fillColor: "#1e7a58", fillOpacity: 0.6 }} interactive={false}>
-                    <Tooltip className="rpis-tip" direction="top" offset={[0, -4]}>{name}</Tooltip>
+                    <Tooltip className="rpis-tip" direction="top" offset={[0, -4]}>{b.name} · {b.psgc}</Tooltip>
                   </CircleMarker>
                 ))}
 
@@ -369,15 +367,14 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
               </div>
             </div>
           </Reveal>
-        </div>}
+        </div>
 
         {/* ─────────── PANELS ─────────── */}
-        <div className={tab === "barangays" ? "lg:col-span-12" : "lg:col-span-5 xl:col-span-4"}>
+        <div className="lg:col-span-5 xl:col-span-4">
           <div className="flex overflow-hidden rounded-t-[4px] border-2 border-b-0 border-ink-800">
             <TabBtn id="cadastre" label="Cadastre" n={parcels?.length ?? 0} />
             <TabBtn id="centerlines" label="Centerlines" n={centerlines.length} />
             <TabBtn id="affected" label="Affected" n={analysis?.rows.length ?? 0} />
-            <TabBtn id="barangays" label="Barangays" n={barangays.length} />
           </div>
 
           {/* CADASTRE */}
@@ -625,12 +622,6 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
             </div>
           )}
 
-          {/* BARANGAY REGISTRY — expands to full width (map hidden on this tab) */}
-          {tab === "barangays" && (
-            <div className="mt-4">
-              <BarangayRegistry onLocate={onLocate} />
-            </div>
-          )}
         </div>
       </div>
 

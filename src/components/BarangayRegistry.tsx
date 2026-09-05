@@ -178,10 +178,10 @@ function BarangayForm({ editing, previewId, onClose }: {
   const save = () => {
     const lat = parseFloat(f.lat) || 9.74, lng = parseFloat(f.lng) || 118.74;
     if (editing) {
-      if (editing.name !== f.name.trim()) renameBarangay(editing.id, editing.name, f.name.trim());
-      else updateBarangay(editing.id, { psgc: f.psgc.trim(), dataSource: f.dataSource });
+      const renamed = editing.name !== f.name.trim();
+      if (renamed) renameBarangay(editing.id, editing.name, f.name.trim());
       updateBarangay(editing.id, { psgc: f.psgc.trim(), dataSource: f.dataSource, lat, lng });
-      toast(f.name.trim(), "updated", `${editing.id} · PSGC ${f.psgc.trim()}`);
+      toast(f.name.trim(), "updated", `${editing.id} · PSGC ${f.psgc.trim()}${renamed ? " · renamed" : ""}`);
     } else {
       const id = addBarangay({ psgc: f.psgc.trim(), name: f.name.trim(), dataSource: f.dataSource, lat, lng });
       toast(f.name.trim(), "saved", `${id} · PSGC ${f.psgc.trim()}`);

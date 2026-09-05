@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap, useMapEvents, ScaleControl, Tooltip } from "react-leaflet";
 import type { Road } from "../data/roads";
-import { barangayCentroids } from "../data/roads";
 import { statusOf, typeShort, fmtPesoM, barangayLabel } from "../data/registry";
 import { useStore, recordPoint, pinSourceOf } from "../state/store";
 import { conditionMeta, classMeta, fmtCoord, prefersReduced } from "./ui";
@@ -32,7 +31,7 @@ export default function MapView({ focus, roads, onLocate }: {
   roads: Road[];
   onLocate?: (r: Road) => void;
 }) {
-  const { records, contractors } = useStore();
+  const { records, contractors, barangays } = useStore();
   const [basemap, setBasemap] = useState<keyof typeof BASEMAPS>("street");
   const [layers, setLayers] = useState<Layers>({ roads: true, pins: true, barangays: true });
   const [coord, setCoord] = useState<[number, number] | null>(null);
@@ -54,8 +53,8 @@ export default function MapView({ focus, roads, onLocate }: {
         <MapCore focus={focus} reduced={reduced} onCursor={setCoord} />
 
         {layers.barangays &&
-          barangayCentroids.map((b) => (
-            <CircleMarker key={b.name} center={b.point} radius={2.5} pathOptions={{ color: "#7d9183", weight: 1, fillColor: "#7d9183", fillOpacity: 0.55 }} interactive={false} />
+          barangays.map((b) => (
+            <CircleMarker key={b.id} center={[b.lat, b.lng]} radius={2.5} pathOptions={{ color: "#7d9183", weight: 1, fillColor: "#7d9183", fillOpacity: 0.55 }} interactive={false} />
           ))}
 
         {layers.roads && roads.map((r) => (
