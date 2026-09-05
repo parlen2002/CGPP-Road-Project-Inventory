@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   PROJECT_TYPES, MODES, FUNDS, TYPE_OBJECT_CODE, PCAB_CATEGORIES,
   ENGINEER_POSITIONS, ENGINEER_UNITS,
@@ -18,7 +19,9 @@ const saveBtnCls =
 export function Modal({ title, sheet, onClose, children, wide }: {
   title: string; sheet: string; onClose: () => void; children: ReactNode; wide?: boolean;
 }) {
-  return (
+  /* portaled to <body> so scroll-reveal transforms can never trap the modal
+     inside a container — it always centers on the viewing screen */
+  return createPortal(
     <div className="anim-fade-in fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-ink-950/60 p-4">
       <div className={`anim-fade-up relative my-6 w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-[4px] border-2 border-ink-800 bg-paper-100 shadow-2xl`}>
         <div className="flex items-center justify-between gap-3 border-b-2 border-ink-800 bg-ink-900 px-5 py-3.5">
@@ -30,7 +33,8 @@ export function Modal({ title, sheet, onClose, children, wide }: {
         </div>
         <div className="max-h-[76vh] overflow-y-auto p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -394,18 +398,27 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
             <input type="date" className={inputCls} value={f.actualCompletion} onChange={(e) => setF({ ...f, actualCompletion: e.target.value })} />
           </div>
 
-          <div className="col-span-2 sm:col-span-3">
-            <div className="flex items-baseline justify-between">
-              <label className={labelCls}>Project status — % of completion</label>
-              <span className="font-display text-2xl leading-none font-bold text-ink-900">{f.percent}%</span>
+          {/* completion % is only encoded when updating — new projects start at 0 */}
+          {editing ? (
+            <div className="col-span-2 sm:col-span-3">
+              <div className="flex items-baseline justify-between">
+                <label className={labelCls}>Project status — % of completion</label>
+                <span className="font-display text-2xl leading-none font-bold text-ink-900">{f.percent}%</span>
+              </div>
+              <input
+                type="range" min={0} max={100} step={1} value={f.percent}
+                onChange={(e) => setF({ ...f, percent: parseInt(e.target.value, 10) })}
+                className="rpis-slider"
+                style={{ "--track": `linear-gradient(90deg, #f0a32b ${f.percent}%, #cbd4c2 ${f.percent}%)` } as React.CSSProperties}
+              />
             </div>
-            <input
-              type="range" min={0} max={100} step={1} value={f.percent}
-              onChange={(e) => setF({ ...f, percent: parseInt(e.target.value, 10) })}
-              className="rpis-slider"
-              style={{ "--track": `linear-gradient(90deg, #f0a32b ${f.percent}%, #cbd4c2 ${f.percent}%)` } as React.CSSProperties}
-            />
-          </div>
+          ) : (
+            <div className="col-span-2 rounded-[3px] border border-dashed border-line-400 bg-paper-200/50 px-3 py-2.5 sm:col-span-3">
+              <p className="font-mono text-[9.5px] leading-relaxed text-text-400 uppercase">
+                Status starts at <b className="text-ink-900">0% · Not Started</b> — the completion slider is available when updating the saved record
+              </p>
+            </div>
+          )}
 
           <div className="col-span-2 sm:col-span-3">
             <label className={labelCls}>Notes & remarks</label>

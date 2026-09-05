@@ -114,9 +114,12 @@ body {
   transform: translateY(22px);
   transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* transform:none (not translateY(0)) so settled sections stop creating a
+   containing block — position:fixed modals/drawers inside them then anchor
+   to the viewport, not the list container */
 .reveal.is-in {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 /* staggered children */

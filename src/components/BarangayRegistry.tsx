@@ -1,11 +1,15 @@
 /* ─────────────────────────────────────────────────────────────
    BARANGAY REGISTRY — the administrative basis of every project
-   location. Each barangay carries its Ten-Digit PSGC Code, name
-   and Data Source, and is fully editable / removable. Renames and
-   removals propagate to the project records that reference it.
+   location. All 66 official barangays of Puerto Princesa City
+   (PSA PSGC, as of 31 July 2025). Each entry carries its
+   Ten-Digit PSGC Code, Barangay Name, Data Source (+ centroid
+   and 2024 POPCEN population) and is fully editable / removable.
+   Renames and removals propagate to the project records that
+   reference them. Removals require Program-Admin mode.
    ────────────────────────────────────────────────────────────── */
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { DATA_SOURCES, type Barangay } from "../data/barangays";
 import { useStore, addBarangay, updateBarangay, renameBarangay, deleteBarangay, nextBarangayId } from "../state/store";
 import { toast } from "./toast";
@@ -36,6 +40,7 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
   }, [barangays, search]);
 
   const linked = del ? linkedCount.get(del.name) ?? 0 : 0;
+  const urbanPop = barangays.reduce((s, b) => s + b.population, 0);
 
   return (
     <div className="anim-fade-in rounded-[4px] border-2 border-ink-800 bg-paper-100">
@@ -50,7 +55,7 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
           />
         </div>
         <p className="font-mono text-[9.5px] tracking-[0.14em] text-text-400 uppercase">
-          {filtered.length} / {barangays.length} barangays
+          {filtered.length} / {barangays.length} barangays · pop. {urbanPop.toLocaleString()}
         </p>
         <button
           onClick={() => setModal({ editing: null })}
@@ -62,13 +67,14 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
 
       {/* table */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse">
+        <table className="w-full min-w-[960px] border-collapse">
           <thead className="bg-ink-900 text-paper-300">
             <tr className="[&>th]:border-b-2 [&>th]:border-amber-500/70 [&>th]:px-3 [&>th]:py-2.5 [&>th]:font-mono [&>th]:text-[9.5px] [&>th]:font-semibold [&>th]:tracking-[0.14em] [&>th]:uppercase">
               <th className="text-left">Key</th>
               <th className="text-left">Ten-Digit PSGC Code</th>
               <th className="text-left">Barangay Name</th>
               <th className="text-left">Data Source</th>
+              <th className="text-right">Pop. 2024</th>
               <th className="text-left">Centroid</th>
               <th className="text-right">Linked projects</th>
               <th className="text-right">Actions</th>
@@ -85,6 +91,7 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
                   <td className="px-3 py-2.5">
                     <span className="rounded-[3px] border border-ink-800/25 bg-ink-900/[0.06] px-1.5 py-0.5 font-mono text-[9.5px] font-semibold tracking-wider uppercase text-text-600">{b.dataSource}</span>
                   </td>
+                  <td className="px-3 py-2.5 text-right font-mono text-[11.5px] text-text-600 tabular">{b.population.toLocaleString()}</td>
                   <td className="px-3 py-2.5">
                     <button
                       onClick={() => onLocate([b.lat, b.lng], 14)}
@@ -105,9 +112,13 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
                         title="Edit barangay"
                       ><IconEdit size={13} /></button>
                       <button
-                        onClick={() => setDel(b)}
-                        className="cursor-pointer rounded-[3px] border border-line-400 p-1.5 text-text-400 transition-colors hover:border-coral-500 hover:text-coral-600"
-                        title="Remove barangay"
+                        onClick={() => (admin ? setDel(b) : toast("Program-Admin mode required", "info", "toggle ADMIN on the top bar to remove registry entries"))}
+                        className={`rounded-[3px] border p-1.5 transition-colors ${
+                          admin
+                            ? "cursor-pointer border-line-400 text-text-400 hover:border-coral-500 hover:text-coral-600"
+                            : "cursor-not-allowed border-line-300 text-line-400"
+                        }`}
+                        title={admin ? "Remove barangay" : "Requires Program-Admin mode"}
                       ><IconTrash size={13} /></button>
                     </div>
                   </td>
@@ -115,7 +126,7 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center font-mono text-[12px] text-text-400">— no barangays match the filter —</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center font-mono text-[12px] text-text-400">— no barangays match the filter —</td></tr>
             )}
           </tbody>
         </table>
@@ -125,7 +136,7 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
         {admin ? "admin mode · removals enabled" : "read-only view · toggle ADMIN (top bar) to remove"} · renaming propagates to project records
       </p>
 
-      {/* encode / edit modal */}
+      {/* encode / edit modal — portaled to the viewport so it always centers on screen */}
       {modal && (
         <BarangayForm
           editing={modal.editing}
@@ -161,7 +172,7 @@ export default function BarangayRegistry({ onLocate }: { onLocate: (p: [number, 
   );
 }
 
-/* ---------- encode / edit form ---------- */
+/* ---------- encode / edit form (viewport-centered via portal) ---------- */
 
 function BarangayForm({ editing, previewId, onClose }: {
   editing: Barangay | null;
@@ -169,27 +180,27 @@ function BarangayForm({ editing, previewId, onClose }: {
   onClose: () => void;
 }) {
   const [f, setF] = useState(() => editing
-    ? { psgc: editing.psgc, name: editing.name, dataSource: editing.dataSource, lat: String(editing.lat), lng: String(editing.lng) }
-    : { psgc: "1769010000", name: "", dataSource: DATA_SOURCES[0], lat: "9.7400", lng: "118.7400" });
+    ? { psgc: editing.psgc, name: editing.name, dataSource: editing.dataSource, lat: String(editing.lat), lng: String(editing.lng), population: String(editing.population) }
+    : { psgc: "1731500068", name: "", dataSource: DATA_SOURCES[0], lat: "9.7400", lng: "118.7400", population: "0" });
 
   const validPsgc = /^\d{10}$/.test(f.psgc.trim());
   const valid = validPsgc && f.name.trim().length > 1;
 
   const save = () => {
     const lat = parseFloat(f.lat) || 9.74, lng = parseFloat(f.lng) || 118.74;
+    const population = Math.max(0, parseInt(f.population, 10) || 0);
     if (editing) {
-      const renamed = editing.name !== f.name.trim();
-      if (renamed) renameBarangay(editing.id, editing.name, f.name.trim());
-      updateBarangay(editing.id, { psgc: f.psgc.trim(), dataSource: f.dataSource, lat, lng });
-      toast(f.name.trim(), "updated", `${editing.id} · PSGC ${f.psgc.trim()}${renamed ? " · renamed" : ""}`);
+      if (editing.name !== f.name.trim()) renameBarangay(editing.id, editing.name, f.name.trim());
+      updateBarangay(editing.id, { psgc: f.psgc.trim(), dataSource: f.dataSource, lat, lng, population });
+      toast(f.name.trim(), "updated", `${editing.id} · PSGC ${f.psgc.trim()}`);
     } else {
-      const id = addBarangay({ psgc: f.psgc.trim(), name: f.name.trim(), dataSource: f.dataSource, lat, lng });
+      const id = addBarangay({ psgc: f.psgc.trim(), name: f.name.trim(), dataSource: f.dataSource, lat, lng, population });
       toast(f.name.trim(), "saved", `${id} · PSGC ${f.psgc.trim()}`);
     }
     onClose();
   };
 
-  return (
+  return createPortal(
     <div className="anim-fade-in fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-ink-950/60 p-4" onClick={onClose}>
       <div className="anim-fade-up relative my-6 w-full max-w-lg rounded-[4px] border-2 border-ink-800 bg-paper-100 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b-2 border-ink-800 bg-ink-900 px-5 py-3.5">
@@ -205,7 +216,7 @@ function BarangayForm({ editing, previewId, onClose }: {
         <div className="grid grid-cols-2 gap-3 p-5">
           <div>
             <label className={labelCls}>Ten-Digit Code *</label>
-            <input className={`${inputCls} ${!validPsgc && f.psgc ? "border-coral-500 ring-1 ring-coral-500/40" : ""}`} value={f.psgc} onChange={(e) => setF({ ...f, psgc: e.target.value })} inputMode="numeric" maxLength={10} placeholder="1769010001" />
+            <input className={`${inputCls} ${!validPsgc && f.psgc ? "border-coral-500 ring-1 ring-coral-500/40" : ""}`} value={f.psgc} onChange={(e) => setF({ ...f, psgc: e.target.value })} inputMode="numeric" maxLength={10} placeholder="1731500068" />
             {!validPsgc && <p className="mt-1 font-mono text-[8.5px] text-coral-600 uppercase">must be exactly 10 digits</p>}
           </div>
           <div>
@@ -216,7 +227,7 @@ function BarangayForm({ editing, previewId, onClose }: {
           </div>
           <div className="col-span-2">
             <label className={labelCls}>Barangay Name *</label>
-            <input className={inputCls} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. San Pedro (Poblacion)" />
+            <input className={inputCls} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. San Pedro" />
             {editing && editing.name !== f.name.trim() && (
               <p className="mt-1 font-mono text-[8.5px] tracking-wider text-teal-500 uppercase">rename will propagate to linked project records</p>
             )}
@@ -229,6 +240,10 @@ function BarangayForm({ editing, previewId, onClose }: {
             <label className={labelCls}>Centroid Longitude</label>
             <input className={inputCls} value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} inputMode="decimal" placeholder="118.7400" />
           </div>
+          <div className="col-span-2">
+            <label className={labelCls}>Population (2024 POPCEN)</label>
+            <input className={inputCls} value={f.population} onChange={(e) => setF({ ...f, population: e.target.value })} inputMode="numeric" placeholder="0" />
+          </div>
         </div>
 
         <div className="flex items-center justify-between border-t border-line-300 bg-paper-200 px-5 py-3.5">
@@ -240,6 +255,7 @@ function BarangayForm({ editing, previewId, onClose }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

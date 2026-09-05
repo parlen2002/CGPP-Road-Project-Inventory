@@ -11,9 +11,9 @@ export default function Barangays({ onLocate }: { onLocate: (p: [number, number]
     const linked = new Set<string>();
     let refs = 0;
     records.forEach((r) => r.location.barangays.forEach((b) => { linked.add(b); refs++; }));
-    const sources = new Set(barangays.map((b) => b.dataSource)).size;
+    const population = barangays.reduce((s, b) => s + b.population, 0);
     const multi = records.filter((r) => r.location.barangays.length > 1).length;
-    return { linked: linked.size, refs, sources, multi };
+    return { linked: linked.size, refs, population, multi };
   }, [barangays, records]);
 
   return (
@@ -21,7 +21,7 @@ export default function Barangays({ onLocate }: { onLocate: (p: [number, number]
       <PageHeader
         sheet="RPIS-BRG-05"
         title="Barangay Registry"
-        subtitle="The administrative basis of every project location. Each barangay carries its Ten-Digit PSGC Code, name and Data Source, is fully editable and removable, and drives the barangay-coverage location model, the spatial join in Lot & ROW Analysis, and the map labels."
+        subtitle="All 66 official barangays of Puerto Princesa City (PSA PSGC, 31 July 2025) — the administrative basis of every project location. Each entry carries its Ten-Digit PSGC Code, name, Data Source and 2024 POPCEN population, is fully editable and removable, and drives the barangay-coverage location model, the spatial join in Lot & ROW Analysis, and the map labels."
       />
 
       {/* stat strip */}
@@ -31,7 +31,7 @@ export default function Barangays({ onLocate }: { onLocate: (p: [number, number]
             { k: "Registered barangays", node: <CountUp value={barangays.length} />, s: "brgy_registry rows", icon: <IconBarangay size={17} /> },
             { k: "Referenced by projects", node: <CountUp value={stats.linked} />, s: `${stats.refs} coverage links`, icon: <IconLayers size={17} /> },
             { k: "Multi-barangay projects", node: <CountUp value={stats.multi} />, s: "vast / spanning works", icon: <IconPin size={17} /> },
-            { k: "Distinct data sources", node: <CountUp value={stats.sources} />, s: "PSG · NAMRIA · LGU", icon: <IconArrow size={17} /> },
+            { k: "Resident population 2024", node: <CountUp value={stats.population} />, s: "PSA POPCEN · all 66", icon: <IconArrow size={17} /> },
           ].map((x) => (
             <div key={x.k} className="group bg-ink-900 px-4 py-4 transition-colors hover:bg-ink-850">
               <div className="flex items-center justify-between">

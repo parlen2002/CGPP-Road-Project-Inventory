@@ -19,7 +19,7 @@ export interface Snapshot {
   admin: boolean;            // program-admin mode gates removal of uploaded files
 }
 
-const KEY = "rpis-store-v6"; // v6 = barangay registry + admin gate; older snapshots are reseeded
+const KEY = "rpis-store-v7"; // v7 = full 66-barangay official registry + population; older snapshots are reseeded
 
 function load(): Snapshot {
   try {

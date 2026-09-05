@@ -2,12 +2,13 @@ import {
   statusOf, typeShort, fmtPeso, fmtPesoM, fmtDate, durationOf,
   type ProjectRecord,
 } from "../data/registry";
+import { useState, useEffect } from "react";
 import {
-  useStore, setPercent, setActualDates, recordPoint, pinSourceOf,
+  useStore, updateRecord, recordPoint, pinSourceOf,
 } from "../state/store";
 import { toast } from "./toast";
 import { CornerTicks } from "./ui";
-import { IconClose, IconPin, IconArrow, IconUser, IconCalendar, IconEdit, IconTrash } from "./icons";
+import { IconClose, IconPin, IconArrow, IconUser, IconCalendar, IconEdit, IconTrash, IconSave } from "./icons";
 import ROWImpact from "./ROWImpact";
 import DocumentIntake from "./DocumentIntake";
 
@@ -32,9 +33,30 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
   const impl = record ? contractors.find((c) => c.id === record.implementorId) : undefined;
   const engr = record ? engineers.find((e) => e.id === record.inchargeId) : undefined;
 
+  /* local draft — edits stay here until the user presses Save/Update */
+  const [draft, setDraft] = useState(() => ({
+    percent: record?.percent ?? 0,
+    actualStart: record?.actualStart ?? "",
+    actualCompletion: record?.actualCompletion ?? "",
+  }));
+  useEffect(() => {
+    setDraft({
+      percent: record?.percent ?? 0,
+      actualStart: record?.actualStart ?? "",
+      actualCompletion: record?.actualCompletion ?? "",
+    });
+  }, [record?.id, record?.percent, record?.actualStart, record?.actualCompletion]);
+
   if (!record) return null;
-  const meta = statusOf(record);
-  const pct = record.percent;
+
+  const draftRec = { ...record, percent: draft.percent, actualStart: draft.actualStart || null, actualCompletion: draft.actualCompletion || null };
+  const meta = statusOf(draftRec);
+  const pct = draft.percent;
+  const dirty = draft.percent !== record.percent || draft.actualStart !== (record.actualStart ?? "") || draft.actualCompletion !== (record.actualCompletion ?? "");
+  const saveDraft = () => {
+    updateRecord(record.id, { percent: draft.percent, actualStart: draft.actualStart || null, actualCompletion: draft.actualCompletion || null });
+    toast(record.name, "updated", `${record.id} · ${draft.percent}% · status ${statusOf(draftRec).label}`);
+  };
   const variance = record.contractedAmount - record.actualAmount;
   const pin = pinSourceOf(record);
   const pt = recordPoint(record);
@@ -43,7 +65,7 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
   return (
     <div className="anim-fade-in fixed inset-0 z-40">
       <div className="absolute inset-0 bg-ink-950/50" onClick={onClose} />
-      <aside className="absolute top-0 right-0 flex h-full w-full max-w-[470px] flex-col border-l-2 border-ink-800 bg-paper-200 shadow-2xl">
+      <aside className="absolute top-0 right-0 flex h-full w-full max-w-[570px] flex-col border-l-2 border-ink-800 bg-paper-200 shadow-2xl">
         {/* header */}
         <div className="border-b-2 border-ink-800 bg-ink-900 px-5 py-4">
           <div className="flex items-start justify-between gap-3">
@@ -70,7 +92,7 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
                 >
                   <IconTrash size={12} /> Delete
                 </button>
-                <span className="ml-auto font-mono text-[8.5px] tracking-[0.16em] text-paper-300/40 uppercase">row is persisted</span>
+                <span className="ml-auto font-mono text-[8.5px] tracking-[0.16em] text-paper-300/40 uppercase">{dirty ? "draft — not yet saved" : "row is persisted"}</span>
               </div>
             </div>
             <button onClick={onClose} className="shrink-0 cursor-pointer p-1.5 text-paper-300/60 transition-colors hover:text-amber-400"><IconClose size={18} /></button>
@@ -98,7 +120,7 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             <input
               type="range" min={0} max={100} step={1} value={pct}
               aria-label="Percent of completion"
-              onChange={(e) => setPercent(record.id, parseInt(e.target.value, 10))}
+              onChange={(e) => setDraft((d) => ({ ...d, percent: parseInt(e.target.value, 10) }))}
               className="rpis-slider mt-3"
               style={{ "--track": `linear-gradient(90deg, ${meta.color} ${pct}%, #e2e7d9 ${pct}%)` } as React.CSSProperties}
             />
@@ -106,7 +128,7 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
               <span>0 · not started</span><span>100 · complete</span>
             </div>
             <p className="mt-2 border-t border-dashed border-line-400 pt-2 font-mono text-[9px] text-text-400">
-              Drag to encode field progress — status re-derives and persists to <b className="text-teal-500">project_records.percent</b>
+              Drag to stage field progress, then press <b className="text-amber-600">Save / Update record</b> below — nothing is written until you commit
             </p>
           </div>
 
@@ -153,23 +175,23 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
               <div>
                 <p className="font-mono text-[8.5px] tracking-[0.14em] text-text-400 uppercase">Actual start</p>
                 <input
-                  type="date" value={record.actualStart ?? ""}
-                  onChange={(e) => setActualDates(record.id, e.target.value || null, record.actualCompletion)}
+                  type="date" value={draft.actualStart}
+                  onChange={(e) => setDraft((d) => ({ ...d, actualStart: e.target.value }))}
                   className="mt-0.5 w-full rounded-[3px] border border-line-400 bg-white/70 px-2 py-1 font-mono text-[11px] text-ink-900 focus:border-amber-600 focus:outline-none"
                 />
               </div>
               <div>
                 <p className="font-mono text-[8.5px] tracking-[0.14em] text-text-400 uppercase">Actual completion</p>
                 <input
-                  type="date" value={record.actualCompletion ?? ""}
-                  onChange={(e) => setActualDates(record.id, record.actualStart, e.target.value || null)}
+                  type="date" value={draft.actualCompletion}
+                  onChange={(e) => setDraft((d) => ({ ...d, actualCompletion: e.target.value }))}
                   className="mt-0.5 w-full rounded-[3px] border border-line-400 bg-white/70 px-2 py-1 font-mono text-[11px] text-ink-900 focus:border-amber-600 focus:outline-none"
                 />
               </div>
             </div>
             <div className="mt-3 flex items-center justify-between border-t border-dashed border-line-400 pt-2.5">
               <p className="font-mono text-[9px] tracking-[0.14em] text-text-400 uppercase">Actual project duration</p>
-              <p className="font-mono text-[12px] font-bold text-ink-900">{durationOf(record)}</p>
+              <p className="font-mono text-[12px] font-bold text-ink-900">{durationOf(draftRec)}</p>
             </div>
           </div>
 
@@ -279,6 +301,31 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             <p className="mb-1.5 font-mono text-[9px] tracking-[0.18em] text-amber-600 uppercase">Notes & remarks</p>
             <p className="text-[12.5px] leading-relaxed text-text-900">{record.notes || "No remarks encoded."}</p>
           </div>
+        </div>
+
+        {/* dedicated save / update — commits the staged draft, no live writes */}
+        <div className={`flex shrink-0 items-center gap-3 border-t-2 px-5 py-3.5 transition-colors ${dirty ? "border-amber-500 bg-amber-500/15" : "border-ink-800 bg-ink-900"}`}>
+          <div className="min-w-0 flex-1">
+            <p className={`font-mono text-[9px] font-bold tracking-[0.18em] uppercase ${dirty ? "text-amber-600" : "text-paper-300/50"}`}>
+              {dirty ? "● Unsaved changes staged" : "Record up to date"}
+            </p>
+            <p className={`mt-0.5 font-mono text-[8.5px] tracking-wider uppercase ${dirty ? "text-amber-600/80" : "text-paper-300/35"}`}>
+              {dirty
+                ? `${pct}% · ${meta.label} · commits on save`
+                : "adjust % and dates above, then save"}
+            </p>
+          </div>
+          <button
+            onClick={saveDraft}
+            disabled={!dirty}
+            className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-[3px] px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.16em] uppercase transition-all disabled:cursor-not-allowed disabled:opacity-35 ${
+              dirty
+                ? "bg-amber-500 text-ink-950 shadow-[0_6px_18px_rgba(240,163,43,0.4)] hover:bg-amber-400"
+                : "bg-ink-700 text-paper-300/50"
+            }`}
+          >
+            <IconSave size={14} /> {dirty ? "Save / Update record" : "Saved"}
+          </button>
         </div>
       </aside>
     </div>

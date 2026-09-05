@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { IconTrash } from "./icons";
 
 export default function ConfirmDialog({ title, sheet, message, confirmLabel, onConfirm, onClose }: {
@@ -9,7 +10,8 @@ export default function ConfirmDialog({ title, sheet, message, confirmLabel, onC
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  return (
+  /* portaled to <body> so it always centers on the viewing screen */
+  return createPortal(
     <div className="anim-fade-in fixed inset-0 z-[60] grid place-items-center bg-ink-950/70 p-4" onClick={onClose}>
       <div
         className="anim-fade-up relative w-full max-w-md rounded-[4px] border-2 border-coral-600 bg-paper-100 shadow-2xl"
@@ -41,6 +43,7 @@ export default function ConfirmDialog({ title, sheet, message, confirmLabel, onC
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

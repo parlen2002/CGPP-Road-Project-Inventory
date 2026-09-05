@@ -72,7 +72,7 @@ export const CITY_CENTER: [number, number] = [9.7392, 118.7353];
 export const roads: Road[] = [
   /* ── CITY ROADS — OCE jurisdiction (the inventory) ── */
   {
-    id: "rd-rizal", name: "Rizal Avenue", barangay: "San Pedro (Poblacion)", roadClass: "City",
+    id: "rd-rizal", name: "Rizal Avenue", barangay: "San Pedro", roadClass: "City",
     surface: "Concrete", condition: "Good", lengthKm: 2.4, widthM: 12, lanes: 4, aadt: 14200,
     lastInspection: "2026-01-14", pci: 86,
     geometry: [[9.7282, 118.7338], [9.7315, 118.7349], [9.7348, 118.7359], [9.7382, 118.7371], [9.7415, 118.7383], [9.7448, 118.7394], [9.7495, 118.7408]],
@@ -90,13 +90,13 @@ export const roads: Road[] = [
     geometry: [[9.7328, 118.7352], [9.7358, 118.7358], [9.7392, 118.7366], [9.7422, 118.7372], [9.7455, 118.7378]],
   },
   {
-    id: "rd-valencia", name: "Valencia Street", barangay: "San Pedro (Poblacion)", roadClass: "City",
+    id: "rd-valencia", name: "Valencia Street", barangay: "San Pedro", roadClass: "City",
     surface: "Concrete", condition: "Fair", lengthKm: 1.6, widthM: 8, lanes: 2, aadt: 6420,
     lastInspection: "2025-10-19", pci: 71,
     geometry: [[9.7322, 118.7281], [9.7326, 118.7314], [9.7331, 118.7356], [9.7336, 118.7392], [9.7341, 118.7431]],
   },
   {
-    id: "rd-burgos", name: "Burgos Street", barangay: "San Pedro (Poblacion)", roadClass: "City",
+    id: "rd-burgos", name: "Burgos Street", barangay: "San Pedro", roadClass: "City",
     surface: "Concrete", condition: "Good", lengthKm: 0.9, widthM: 7, lanes: 2, aadt: 5230,
     lastInspection: "2026-01-22", pci: 88,
     geometry: [[9.7349, 118.7355], [9.7352, 118.7385], [9.7356, 118.7415], [9.7359, 118.7446]],
