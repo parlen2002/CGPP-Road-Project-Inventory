@@ -8,6 +8,7 @@ import {
   type Parcel, type Centerline,
 } from "../data/cadastre";
 import { seedBarangays, type Barangay } from "../data/barangays";
+import { seedRoadsReg, suggestRoadId, type RoadReg } from "../data/roadsRegistry";
 
 export interface Snapshot {
   records: ProjectRecord[];
@@ -16,10 +17,11 @@ export interface Snapshot {
   parcels: Parcel[];         // cadastre (QGIS shapefile basis)
   centerlines: Centerline[]; // road centerlines (KML / GPX / drawn), linked to records
   barangays: Barangay[];     // barangay registry — editable administrative basis
+  roadsReg: RoadReg[];       // road & street registry — the naming basis of the inventory
   admin: boolean;            // program-admin mode gates removal of uploaded files
 }
 
-const KEY = "rpis-store-v7"; // v7 = full 66-barangay official registry + population; older snapshots are reseeded
+const KEY = "rpis-store-v8"; // v8 = road & street registry + project treatments; older snapshots are reseeded
 
 function load(): Snapshot {
   try {
@@ -33,14 +35,15 @@ function load(): Snapshot {
         Array.isArray(p.records[0]?.attachments) &&
         Array.isArray(p.contractors) && Array.isArray(p.engineers) &&
         Array.isArray(p.parcels) && Array.isArray(p.centerlines) &&
-        Array.isArray(p.barangays) && typeof p.admin === "boolean"
+        Array.isArray(p.barangays) && Array.isArray(p.roadsReg) &&
+        typeof p.admin === "boolean"
       ) return p;
     }
   } catch { /* corrupted storage → fall back to seed */ }
   return {
     records: seedRecords, contractors: seedContractors, engineers: seedEngineers,
     parcels: generateSampleCadastral(), centerlines: seedCenterlines,
-    barangays: seedBarangays, admin: false,
+    barangays: seedBarangays, roadsReg: seedRoadsReg, admin: false,
   };
 }
 
@@ -305,4 +308,30 @@ export function deleteBarangay(id: string): number {
 /** name → centroid map built from the live registry */
 export function barangayPoints(brgs: Barangay[]): Record<string, [number, number]> {
   return Object.fromEntries(brgs.map((b) => [b.name, [b.lat, b.lng] as [number, number]]));
+}
+
+/* ---------------- road & street registry ---------------- */
+
+export function addRoadReg(r: Omit<RoadReg, "id">): string {
+  const id = suggestRoadId(snapshot.roadsReg);
+  mutate({ ...snapshot, roadsReg: [...snapshot.roadsReg, { ...r, id }] });
+  return id;
+}
+
+export function updateRoadReg(id: string, patch: Partial<Omit<RoadReg, "id">>) {
+  mutate({ ...snapshot, roadsReg: snapshot.roadsReg.map((r) => (r.id === id ? { ...r, ...patch } : r)) });
+}
+
+/**
+ * Removes a road from the registry and unlinks every project that
+ * referenced it. Returns the number of unlinked records.
+ */
+export function deleteRoadReg(id: string): number {
+  const linked = snapshot.records.filter((r) => r.roadId === id).length;
+  mutate({
+    ...snapshot,
+    roadsReg: snapshot.roadsReg.filter((r) => r.id !== id),
+    records: snapshot.records.map((r) => (r.roadId === id ? { ...r, roadId: undefined } : r)),
+  });
+  return linked;
 }

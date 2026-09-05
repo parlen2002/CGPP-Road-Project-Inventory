@@ -13,6 +13,8 @@
 import { roads, nationalRoads, type Surface, type RoadClass } from "./roads";
 import { mPerDegLng } from "../lib/geo";
 
+export type { Surface, RoadClass };
+
 export type Jurisdiction = "OCE" | "DPWH";
 
 export interface RoadReg {
@@ -78,10 +80,53 @@ export function suggestRoadId(existing: RoadReg[]): string {
 
 /** stub centerline for newly encoded roads — 400 m due-east at the barangay centroid */
 export function stubGeometry(lat: number, lng: number): [number, number][] {
-  const kx = mPerDegLngAt(lat);
+  const kx = mPerDegLng(lat);
   const dLng = 200 / kx; // ±200 m
   return [[lat, lng - dLng], [lat, lng + dLng]];
 }
+
+/* ---------- treatment ladder — order matters (lowest → highest) ---------- */
+
+import { SURFACE_TREATMENT, TREATMENT_SHORT, type Treatment } from "./roads";
+import type { ProjectRecord } from "./registry";
+
+export const TREATMENT_ORDER: Treatment[] = ["Road Opening", "Road Graveling", "Asphalting", "Concreting"];
+export const treatmentRank = (t: Treatment) => TREATMENT_ORDER.indexOf(t);
+
+export interface RoadDerivation {
+  entry: RoadReg;
+  projects: ProjectRecord[];      // ledger rows linked to this road
+  treatment: Treatment;           // present treatment — highest across linked projects, else from surveyed surface
+  treatmentYear: number;          // when the present treatment was last executed
+  byProjects: boolean;            // true when the treatment came from the ledger
+  budget: number;                 // Σ contracted amount of linked projects
+  ongoing: number;                // linked projects below 100 %
+}
+
+/**
+ * The Road Inventory is this derivation: registry entry × project ledger.
+ * A road's present treatment is the highest treatment among its linked
+ * projects (a Road Opening done in 2016 + Concreting in 2022 → Concreting);
+ * roads with no linked works fall back to the surveyed surface.
+ */
+export function deriveRoad(entry: RoadReg, records: ProjectRecord[]): RoadDerivation {
+  const projects = records.filter((r) => r.roadId === entry.id);
+  const paved = projects
+    .filter((p) => p.treatment)
+    .sort((a, b) => treatmentRank(b.treatment!) - treatmentRank(a.treatment!));
+  const byProjects = paved.length > 0;
+  const treatment: Treatment = byProjects ? paved[0].treatment! : SURFACE_TREATMENT[entry.surface];
+  const yearOf = (p: ProjectRecord) =>
+    (p.actualCompletion ? parseInt(p.actualCompletion.slice(0, 4), 10) : p.bidYear) || 0;
+  const treatmentYear = byProjects ? Math.max(...paved.map(yearOf)) : 0;
+  return {
+    entry, projects, treatment, treatmentYear, byProjects,
+    budget: projects.reduce((s, p) => s + p.contractedAmount, 0),
+    ongoing: projects.filter((p) => p.percent < 100).length,
+  };
+}
+
+export { TREATMENT_SHORT };
 
 /* ---------- network roll-ups (live, from the registry) ---------- */
 

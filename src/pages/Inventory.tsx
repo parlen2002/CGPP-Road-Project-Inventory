@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  cityRoads as roads, cityNetworkKm, nationalKm, type Road,
-  treatmentOf, TREATMENT_SHORT, TREATMENT_COLOR, surfaceLadder, unsurfacedKm, pavedKm,
-} from "../data/roads";
+import type { Road, Treatment } from "../data/roads";
+import { TREATMENT_SHORT, TREATMENT_COLOR } from "../data/roads";
+import { conditionOf, deriveRoad, type RoadDerivation } from "../data/roadsRegistry";
 import { statusOf, fmtPesoM } from "../data/registry";
 import { useStore } from "../state/store";
 import { PageHeader, Reveal, CornerTicks, conditionMeta } from "../components/ui";
@@ -18,13 +17,48 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
   onSelect: (id: string | null) => void;
   onLocate: (road: Road) => void;
 }) {
-  const { records } = useStore();
+  const { records, roadsReg } = useStore();
   const [search, setSearch] = useState(query);
   const [brgy, setBrgy] = useState("All");
-  const [surface, setSurface] = useState("All");
+  const [treatF, setTreatF] = useState<"All" | Treatment>("All");
   const [cond, setCond] = useState("All");
   const [sortKey, setSortKey] = useState<SortKey>("lengthKm");
   const [dir, setDir] = useState<1 | -1>(-1);
+
+  /* ── the inventory is DERIVED: road registry (OCE rows) × project ledger ──
+     Each road's treatment is the highest treatment across its linked projects,
+     so the ladder below reflects actual programmed works, not just surveyed surface. */
+  const derived = useMemo(
+    () => new Map(roadsReg.map((e) => [e.id, deriveRoad(e, records)])),
+    [roadsReg, records]
+  );
+
+  const roads: Road[] = useMemo(
+    () =>
+      roadsReg
+        .filter((e) => e.jurisdiction === "OCE")
+        .map((e) => ({
+          id: e.id, name: e.name, barangay: e.barangays.join(" / "), roadClass: e.roadClass,
+          surface: e.surface, condition: conditionOf(e.pci), lengthKm: e.lengthKm, widthM: e.widthM,
+          lanes: e.lanes, aadt: e.aadt, lastInspection: e.lastInspection, pci: e.pci, geometry: e.geometry,
+        })),
+    [roadsReg]
+  );
+
+  const cityNetworkKm = useMemo(() => roads.reduce((s, r) => s + r.lengthKm, 0), [roads]);
+  const nationalKm = useMemo(
+    () => roadsReg.filter((e) => e.jurisdiction === "DPWH").reduce((s, e) => s + e.lengthKm, 0),
+    [roadsReg]
+  );
+
+  /* pavement ladder — km per treatment, as derived from the project ledger */
+  const ladder = useMemo(() => {
+    const acc: Record<Treatment, number> = { "Road Opening": 0, "Road Graveling": 0, Asphalting: 0, Concreting: 0 };
+    for (const r of roads) acc[derived.get(r.id)!.treatment] += r.lengthKm;
+    return acc;
+  }, [roads, derived]);
+  const pavedKm = ladder.Concreting + ladder.Asphalting;
+  const unsurfacedKm = ladder["Road Graveling"] + ladder["Road Opening"];
 
   useEffect(() => setSearch(query), [query]);
   useEffect(() => {
@@ -32,7 +66,7 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
     document.getElementById(`row-${selectedId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [selectedId]);
 
-  const barangays = useMemo(() => ["All", ...Array.from(new Set(roads.map((r) => r.barangay))).sort()], []);
+  const barangays = useMemo(() => ["All", ...Array.from(new Set(roads.flatMap((r) => r.barangay.split(" / ")))).sort()], [roads]);
   const projCount = useMemo(() => {
     const m = new Map<string, number>();
     records.forEach((p) => { if (p.roadId) m.set(p.roadId, (m.get(p.roadId) ?? 0) + 1); });
@@ -43,8 +77,8 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
     const q = search.trim().toLowerCase();
     const list = roads.filter((r) =>
       (!q || r.name.toLowerCase().includes(q) || r.barangay.toLowerCase().includes(q) || r.id.toLowerCase().includes(q)) &&
-      (brgy === "All" || r.barangay === brgy) &&
-      (surface === "All" || r.surface === surface) &&
+      (brgy === "All" || r.barangay.split(" / ").includes(brgy)) &&
+      (treatF === "All" || derived.get(r.id)!.treatment === treatF) &&
       (cond === "All" || r.condition === cond)
     );
     return list.sort((a, b) => {
@@ -52,7 +86,7 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
       const c = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
       return c * dir;
     });
-  }, [search, brgy, surface, cond, sortKey, dir]);
+  }, [search, brgy, treatF, cond, sortKey, dir, roads, derived]);
 
   const selected = roads.find((r) => r.id === selectedId) ?? null;
   const selectedProjects = selected ? records.filter((p) => p.roadId === selected.id) : [];
@@ -64,10 +98,10 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
   };
 
   const exportCsv = () => {
-    const head = "road_id,name,barangay,class,treatment,treatment_year,surface,condition,length_km,width_m,lanes,aadt,pci,last_inspection,geom_wkt_linestring";
+    const head = "road_id,name,barangay,class,treatment,treatment_year,from_projects,surface,condition,length_km,width_m,lanes,aadt,pci,last_inspection,geom_wkt_linestring";
     const rows = filtered.map((r) => {
-      const t = treatmentOf(r);
-      return [r.id, `"${r.name}"`, `"${r.barangay}"`, r.roadClass, `"${t.treatment}"`, t.year, r.surface, r.condition, r.lengthKm, r.widthM, r.lanes, r.aadt, r.pci, r.lastInspection,
+      const d = derived.get(r.id)!;
+      return [r.id, `"${r.name}"`, `"${r.barangay}"`, r.roadClass, `"${d.treatment}"`, d.treatmentYear || "", d.byProjects ? "yes" : "no", r.surface, r.condition, r.lengthKm, r.widthM, r.lanes, r.aadt, r.pci, r.lastInspection,
         `"LINESTRING(${r.geometry.map(([la, ln]) => `${ln} ${la}`).join(", ")})"`].join(",");
     });
     const blob = new Blob([[head, ...rows].join("\n")], { type: "text/csv" });
@@ -111,15 +145,15 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
             {/* cumulative proportion bar */}
             <div className="mt-4 flex h-4 w-full overflow-hidden rounded-[3px] border border-ink-600">
               {[
-                { label: "Concreted", km: surfaceLadder.concrete, color: "#1e7a58" },
-                { label: "Asphalted", km: surfaceLadder.asphalt, color: "#12897e" },
-                { label: "Graveled", km: surfaceLadder.gravel, color: "#f0a32b" },
-                { label: "Earth (opened)", km: surfaceLadder.earth, color: "#de5a36" },
+                { label: "Concreted", km: ladder.Concreting, color: "#1e7a58" },
+                { label: "Asphalted", km: ladder.Asphalting, color: "#12897e" },
+                { label: "Graveled", km: ladder["Road Graveling"], color: "#f0a32b" },
+                { label: "Earth (opened)", km: ladder["Road Opening"], color: "#de5a36" },
               ].map((s) => (
                 <div
                   key={s.label}
                   className="group relative h-full transition-[filter] hover:brightness-125"
-                  style={{ width: `${(s.km / surfaceLadder.opened) * 100}%`, background: s.color }}
+                  style={{ width: `${(s.km / cityNetworkKm) * 100}%`, background: s.color }}
                   title={`${s.label} — ${s.km.toFixed(1)} km`}
                 />
               ))}
@@ -129,21 +163,21 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
             <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-[3px] border border-ink-600 bg-ink-700 sm:grid-cols-5">
               <div className="bg-ink-950/70 px-3.5 py-3 transition-colors hover:bg-ink-950">
                 <p className="font-mono text-[9px] tracking-[0.16em] text-amber-400 uppercase">Opened (total)</p>
-                <p className="font-display mt-1 text-3xl leading-none font-bold text-paper-100">{surfaceLadder.opened.toFixed(1)}<span className="text-[14px] text-paper-300/60"> km</span></p>
-                <p className="mt-1 font-mono text-[9px] text-paper-300/45 uppercase">{surfaceLadder.segments} segments</p>
+                <p className="font-display mt-1 text-3xl leading-none font-bold text-paper-100">{cityNetworkKm.toFixed(1)}<span className="text-[14px] text-paper-300/60"> km</span></p>
+                <p className="mt-1 font-mono text-[9px] text-paper-300/45 uppercase">{roads.length} segments</p>
               </div>
               {[
-                { label: "Concreted", km: surfaceLadder.concrete, color: "#4cc08f" },
-                { label: "Asphalted", km: surfaceLadder.asphalt, color: "#35c4b4" },
-                { label: "Graveled", km: surfaceLadder.gravel, color: "#ffc24d" },
-                { label: "Earth / opened only", km: surfaceLadder.earth, color: "#f2855f" },
+                { label: "Concreted", km: ladder.Concreting, color: "#4cc08f" },
+                { label: "Asphalted", km: ladder.Asphalting, color: "#35c4b4" },
+                { label: "Graveled", km: ladder["Road Graveling"], color: "#ffc24d" },
+                { label: "Earth / opened only", km: ladder["Road Opening"], color: "#f2855f" },
               ].map((s) => (
                 <div key={s.label} className="bg-ink-950/70 px-3.5 py-3 transition-colors hover:bg-ink-950">
                   <p className="flex items-center gap-1.5 font-mono text-[9px] tracking-[0.16em] uppercase" style={{ color: s.color }}>
                     <i className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />{s.label}
                   </p>
                   <p className="font-display mt-1 text-3xl leading-none font-bold text-paper-100">{s.km.toFixed(1)}<span className="text-[14px] text-paper-300/60"> km</span></p>
-                  <p className="mt-1 font-mono text-[9px] text-paper-300/45 uppercase">{((s.km / surfaceLadder.opened) * 100).toFixed(1)}% of opened</p>
+                  <p className="mt-1 font-mono text-[9px] text-paper-300/45 uppercase">{((s.km / cityNetworkKm) * 100).toFixed(1)}% of opened</p>
                 </div>
               ))}
             </div>
@@ -175,18 +209,18 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
           <span className="hidden cursor-default items-center gap-1.5 rounded-[3px] border border-pine-600/50 bg-pine-600/10 px-2.5 py-2 font-mono text-[10px] font-bold tracking-wider text-pine-600 uppercase sm:flex">
             OCE jurisdiction · City roads
           </span>
-          <select value={surface} onChange={(e) => setSurface(e.target.value)} className={selects[0]}>
+          <select value={treatF} onChange={(e) => setTreatF(e.target.value as "All" | Treatment)} className={selects[0]}>
             <option value="All">All treatments</option>
-            <option value="Concrete">Concreting</option>
-            <option value="Asphalt">Asphalting</option>
-            <option value="Gravel">Road Graveling</option>
-            <option value="Earth">Road Opening (earth)</option>
+            <option value="Concreting">Concreting</option>
+            <option value="Asphalting">Asphalting</option>
+            <option value="Road Graveling">Road Graveling</option>
+            <option value="Road Opening">Road Opening (earth)</option>
           </select>
           <select value={cond} onChange={(e) => setCond(e.target.value)} className={selects[0]}>
             {["All", "Good", "Fair", "Poor"].map((b) => <option key={b}>{b === "All" ? "All conditions" : b}</option>)}
           </select>
-          {(search || brgy !== "All" || surface !== "All" || cond !== "All") && (
-            <button onClick={() => { setSearch(""); setBrgy("All"); setSurface("All"); setCond("All"); }}
+          {(search || brgy !== "All" || treatF !== "All" || cond !== "All") && (
+            <button onClick={() => { setSearch(""); setBrgy("All"); setTreatF("All"); setCond("All"); }}
               className="cursor-pointer rounded-[3px] border border-line-400 px-2.5 py-2 font-mono text-[10px] tracking-wider text-text-600 uppercase hover:border-coral-500 hover:text-coral-500">
               Reset
             </button>
@@ -245,12 +279,13 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
                       <td className="px-3 py-2.5 text-[12px] text-text-600">{r.barangay}</td>
                       <td className="px-3 py-2.5">
                         {(() => {
-                          const t = treatmentOf(r);
-                          const tc = TREATMENT_COLOR[t.treatment];
+                          const d = derived.get(r.id)!;
+                          const tc = TREATMENT_COLOR[d.treatment];
                           return (
-                            <span className="inline-flex items-center gap-1.5 rounded-[3px] px-1.5 py-1 font-mono text-[9.5px] font-bold tracking-wider uppercase" style={{ color: tc, background: `${tc}1a`, boxShadow: `inset 0 0 0 1px ${tc}55` }}>
+                            <span className="inline-flex items-center gap-1.5 rounded-[3px] px-1.5 py-1 font-mono text-[9.5px] font-bold tracking-wider uppercase" style={{ color: tc, background: `${tc}1a`, boxShadow: `inset 0 0 0 1px ${tc}55` }}
+                              title={d.byProjects ? "Derived from the project ledger" : "No linked projects — from surveyed surface"}>
                               <i className="h-1.5 w-1.5 rounded-full" style={{ background: tc }} />
-                              {TREATMENT_SHORT[t.treatment]} · {t.year}
+                              {TREATMENT_SHORT[d.treatment]}{d.treatmentYear ? ` · ${d.treatmentYear}` : ""}{d.byProjects ? "" : " · srv"}
                             </span>
                           );
                         })()}
@@ -312,8 +347,8 @@ export default function Inventory({ query, selectedId, onSelect, onLocate }: {
                     ["LENGTH", `${selected.lengthKm.toFixed(1)} km`],
                     ["WIDTH", `${selected.widthM} m`],
                     ["LANES", `${selected.lanes}`],
-                    ["TREATMENT", treatmentOf(selected).treatment],
-                    ["WORKS YEAR", String(treatmentOf(selected).year)],
+                    ["TREATMENT", derived.get(selected.id)!.treatment + (derived.get(selected.id)!.byProjects ? "" : " (survey)")],
+                    ["WORKS YEAR", derived.get(selected.id)!.treatmentYear ? String(derived.get(selected.id)!.treatmentYear) : "—"],
                     ["SURFACE", selected.surface],
                     ["AADT", selected.aadt.toLocaleString()],
                     ["PCI", String(selected.pci)],

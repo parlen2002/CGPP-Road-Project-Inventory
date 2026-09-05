@@ -13,10 +13,10 @@
      3. barangay centroid(s) → fallback
  ────────────────────────────────────────────────────────────── */
 
-import { BARANGAY_POINTS } from "./roads";
+import { BARANGAY_POINTS, type Treatment } from "./roads";
 
 export type ProjectType =
-  | "Concreting" | "Site Development" | "Drainage System" | "Slope Protection"
+  | "Road Opening" | "Concreting" | "Site Development" | "Drainage System" | "Slope Protection"
   | "Street Lights" | "Road Shoulder" | "Sidewalk";
 
 export type ModeOfImplementation = "By Contract" | "By Administration";
@@ -59,7 +59,8 @@ export interface ProjectRecord {
   actualStart: string | null;
   actualCompletion: string | null;
   percent: number;                 // 0–100 — adjusted via slider
-  roadId?: string;                 // optional link → roads_road
+  roadId?: string;                 // FK → road & street registry (the road being worked on)
+  treatment: Treatment | null;     // road treatment this work performs — drives the inventory ladder
   notes: string;                   // Notes and remarks
 }
 
@@ -76,7 +77,7 @@ export interface Engineer {
 /* ---------------- reference lists ---------------- */
 
 export const PROJECT_TYPES: ProjectType[] = [
-  "Concreting", "Site Development", "Drainage System", "Slope Protection",
+  "Road Opening", "Concreting", "Site Development", "Drainage System", "Slope Protection",
   "Street Lights", "Road Shoulder", "Sidewalk",
 ];
 
@@ -89,6 +90,7 @@ export const FUNDS = [
 ];
 
 export const TYPE_OBJECT_CODE: Record<ProjectType, string> = {
+  "Road Opening": "1-06-03-01-01-00-05",
   Concreting: "1-07-03-01-01-00-02",
   "Site Development": "1-07-01-01-01-00-00",
   "Drainage System": "1-06-03-01-04-00-00",
@@ -115,13 +117,13 @@ export const ENGINEER_UNITS = [
 /* ---------------- lookups / formatting ---------------- */
 
 export const typeShort: Record<ProjectType, string> = {
-  Concreting: "CONC", "Site Development": "SITE", "Drainage System": "DRNG",
+  "Road Opening": "OPEN", Concreting: "CONC", "Site Development": "SITE", "Drainage System": "DRNG",
   "Slope Protection": "SLOPE", "Street Lights": "LITE", "Road Shoulder": "SHLD",
   Sidewalk: "SWLK",
 };
 
 export const TYPE_COLORS: Record<ProjectType, string> = {
-  Concreting: "#175c43", "Site Development": "#8a6d3b", "Drainage System": "#12897e",
+  "Road Opening": "#de5a36", Concreting: "#175c43", "Site Development": "#8a6d3b", "Drainage System": "#12897e",
   "Slope Protection": "#b84423", "Street Lights": "#f0a32b", "Road Shoulder": "#4a70b0",
   Sidewalk: "#5f8f6e",
 };
@@ -230,7 +232,7 @@ export const seedEngineers: Engineer[] = [
    attachments        = uploaded geotagged images (EXIF GPS) / PDFs
    centerlines        = seeded in data/cadastre, linked by projectId */
 
-export const seedRecords: ProjectRecord[] = [
+const RAW_SEEDS: Omit<ProjectRecord, "treatment">[] = [
   { id: "RPIS-2025-014", name: "Rizal Avenue Sidewalk & Drainage Improvement", type: "Sidewalk", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-06-03-01-01-00-04", folderNo: "OCE-IF-2025-014", implementorId: "CTR-002", inchargeId: "ENG-004", location: { barangays: ["San Pedro"] }, attachments: [], linearLength: 1240, contractedAmount: 24_800_000, actualAmount: 15_376_000, bidYear: 2025, contractedStart: "2025-03-10", contractedCompletion: "2026-02-28", actualStart: "2025-03-24", actualCompletion: null, percent: 62, roadId: "rd-rizal", notes: "Segment B (St. 0+640 – 1+240) pending PPC-ELCO utility relocation; revised completion target under review by Planning & Design." },
   { id: "RPIS-2025-021", name: "Tagumpay–Sta. Monica Connector Street Lighting", type: "Street Lights", mode: "By Contract", fund: "DPWH Convergence Program", objectCode: "1-06-05-01-99-00-01", folderNo: "OCE-IF-2025-021", implementorId: "CTR-006", inchargeId: "ENG-006", location: { barangays: ["Tagumpay", "Santa Monica"] }, attachments: [], linearLength: 1900, contractedAmount: 18_600_000, actualAmount: 2_232_000, bidYear: 2025, contractedStart: "2025-06-01", contractedCompletion: "2026-03-31", actualStart: "2025-06-20", actualCompletion: null, percent: 12, roadId: "rd-tagumpay", notes: "Poles 1–9 of 54 installed. Metering application with PPC-ELCO pending; pole setting paused at Sta. Monica junction." },
   { id: "RPIS-2024-036", name: "Bacungan Spur Road Concreting (Seg. 3)", type: "Concreting", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-IF-2024-036", implementorId: "CTR-003", inchargeId: "ENG-003", location: { barangays: ["Bacungan"] }, attachments: [{ id: "ATT-001", kind: "Geotagged Image", name: "IMG_20251112_093412_pour.jpg", sizeKB: 2841, lat: 9.7671, lng: 118.7479, uploadedAt: "2025-11-12T09:34:12+08:00" }], linearLength: 2860, contractedAmount: 86_400_000, actualAmount: 67_392_000, bidYear: 2024, contractedStart: "2024-11-02", contractedCompletion: "2025-12-20", actualStart: "2024-11-18", actualCompletion: null, percent: 78, roadId: "rd-bacungan", notes: "Concrete pour St. 2+340 – 2+860 verified by materials engineer; 28-day core samples passed. Catch-up plan submitted for rain delays." },
@@ -245,7 +247,20 @@ export const seedRecords: ProjectRecord[] = [
   { id: "RPIS-2024-029", name: "Valencia Street Sidewalk Construction", type: "Sidewalk", mode: "By Contract", fund: "20% Development Fund", objectCode: "1-06-03-01-01-00-04", folderNo: "OCE-IF-2024-029", implementorId: "CTR-002", inchargeId: "ENG-004", location: { barangays: ["San Pedro"] }, attachments: [], linearLength: 720, contractedAmount: 14_800_000, actualAmount: 14_655_000, bidYear: 2024, contractedStart: "2024-09-12", contractedCompletion: "2025-03-18", actualStart: "2024-09-28", actualCompletion: "2025-03-11", percent: 100, roadId: "rd-valencia", notes: "Interlocking blocks with ramps per BP 344 accessibility standards. Warranty period to September 2026." },
   { id: "RPIS-2025-033", name: "City Motorpool Site Development", type: "Site Development", mode: "By Contract", fund: "General Fund", objectCode: "1-07-01-01-01-00-00", folderNo: "OCE-IF-2025-033", implementorId: "CTR-004", inchargeId: "ENG-003", location: { barangays: ["Santa Lourdes"] }, attachments: [{ id: "ATT-007", kind: "Geotagged Image", name: "IMG_20251208_110245_cutfill.jpg", sizeKB: 2214, lat: 9.7455, lng: 118.7312, uploadedAt: "2025-12-08T11:02:45+08:00" }], linearLength: 640, contractedAmount: 22_100_000, actualAmount: 7_514_000, bidYear: 2025, contractedStart: "2025-10-08", contractedCompletion: "2026-09-30", actualStart: "2025-10-24", actualCompletion: null, percent: 34, roadId: undefined, notes: "Cut-and-fill 68% complete; perimeter fence footings ongoing. Linear length recorded as site perimeter per P&D convention." },
   { id: "RPIS-2025-036", name: "Bacungan Interior Road Concreting (Force Account)", type: "Concreting", mode: "By Administration", fund: "Calamity Fund (LDRRMF)", objectCode: "1-07-03-01-01-00-02", folderNo: "OCE-FA-2025-036", implementorId: "CTR-001", inchargeId: "ENG-003", location: { barangays: ["Bacungan"] }, attachments: [], linearLength: 1150, contractedAmount: 11_200_000, actualAmount: 4_592_000, bidYear: 2025, contractedStart: "2025-09-01", contractedCompletion: "2026-06-30", actualStart: "2025-09-14", actualCompletion: null, percent: 41, roadId: undefined, notes: "Post-typhoon restoration under force account with DPWH-assigned equipment. Aggregates hauled from city quarry." },
+  { id: "RPIS-2026-010", name: "Sicsican Farm-to-Market Road Opening (Seg. 2)", type: "Road Opening", mode: "By Administration", fund: "20% Development Fund", objectCode: "1-06-03-01-01-00-05", folderNo: "OCE-FA-2026-010", implementorId: "CTR-001", inchargeId: "ENG-003", location: { barangays: ["Sicsican"] }, attachments: [], linearLength: 3200, contractedAmount: 8_400_000, actualAmount: 0, bidYear: 2026, contractedStart: "2026-03-02", contractedCompletion: "2026-12-15", actualStart: null, actualCompletion: null, percent: 0, roadId: "rd-sicsican", notes: "Earth-road opening ahead of programmed graveling: clearing, grubbing, grading and compaction of the 3.2 km farm-to-market alignment. Gravel seal to follow under a separate graveling project." },
 ];
+
+/* pavement works default to their matching treatment; ancillary works (drainage,
+   lighting, sidewalks…) carry no treatment and never move the inventory ladder */
+const DEFAULT_TREATMENT: Partial<Record<ProjectType, Treatment>> = {
+  "Road Opening": "Road Opening",
+  Concreting: "Concreting",
+};
+
+export const seedRecords: ProjectRecord[] = RAW_SEEDS.map((s) => ({
+  ...s,
+  treatment: DEFAULT_TREATMENT[s.type] ?? null,
+}));
 
 /* ---------------- field activity feed ---------------- */
 

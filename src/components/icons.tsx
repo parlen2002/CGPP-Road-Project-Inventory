@@ -204,6 +204,14 @@ export const IconBarangay = (p: P) => (
   </svg>
 );
 
+export const IconStreet = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 19.5h16M4 19.5V13h5.5v6.5M14.5 19.5V13H20v6.5" />
+    <path d="M4 13 7 4.5h4L9.5 13M14.5 13 13 4.5h4L20 13" />
+    <path d="M12 15.5v1.2M12 18v1.2" strokeWidth="1.5" />
+  </svg>
+);
+
 export const IconPlus = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 5v14M5 12h14" />

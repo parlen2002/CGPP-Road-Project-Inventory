@@ -6,9 +6,12 @@ import {
   type ProjectType, type ModeOfImplementation, type ProjectRecord,
   type Contractor, type Engineer,
 } from "../data/registry";
+import type { Treatment } from "../data/roads";
+import { TREATMENT_ORDER } from "../data/roadsRegistry";
 import { useStore, addRecord, updateRecord, addContractor, updateContractor, addEngineer, updateEngineer, nextRecordId } from "../state/store";
 import { toast } from "./toast";
 import { IconClose, IconPlus, IconPin, IconCheck } from "./icons";
+import { SearchSelect } from "./SearchSelect";
 
 const inputCls =
   "w-full rounded-[3px] border border-line-400 bg-white/70 px-2.5 py-2 font-mono text-[11.5px] text-ink-900 placeholder:text-text-400/60 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40";
@@ -181,13 +184,17 @@ export function EngineerForm({ onClose, editing, onCreated }: {
 /* ─────────────── Project encoder / editor ─────────────── */
 
 export function ProjectForm({ onClose, editing }: { onClose: () => void; editing?: ProjectRecord | null }) {
-  const { records, contractors, engineers, barangays: brgyRegistry } = useStore();
-  /* live barangay registry — PSGC code shown on hover, removable entries drop out automatically */
-  const BARANGAY_LIST = brgyRegistry.map((b) => b.name);
-  const brgyPsgc = (name: string) => brgyRegistry.find((b) => b.name === name)?.psgc ?? "";
+  const { records, contractors, engineers, barangays: brgyRegistry, roadsReg } = useStore();
+  /* live registries drive the dropdowns; removed entries simply drop out */
+  const brgyOptions = brgyRegistry.map((b) => ({ value: b.name, label: b.name, sub: b.psgc }));
+  const roadOptions = roadsReg
+    .filter((r) => r.jurisdiction === "OCE")
+    .map((r) => ({ value: r.id, label: r.name, sub: `${r.lengthKm.toFixed(1)} km` }));
   const today = new Date().toISOString().slice(0, 10);
   const plus180 = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
   const [type, setType] = useState<ProjectType>(editing?.type ?? "Concreting");
+  const [treatment, setTreatment] = useState<Treatment | null>(editing?.treatment ?? null);
+  const [roadId, setRoadId] = useState<string>(editing?.roadId ?? "");
   const [f, setF] = useState(() => editing ? {
     name: editing.name, mode: editing.mode, fund: editing.fund,
     folderNo: editing.folderNo, implementorId: editing.implementorId, inchargeId: editing.inchargeId,
@@ -204,13 +211,16 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
     percent: 0, notes: "",
   });
 
+  /* pavement work types carry their treatment automatically unless the encoder overrides */
+  const changeType = (t: ProjectType) => {
+    setType(t);
+    if (!editing) setTreatment(t === "Concreting" ? "Concreting" : t === "Road Opening" ? "Road Opening" : null);
+  };
+
   /* location — barangay-based. Field files (geotagged images / PDFs) are
      uploaded on the saved record; KML / GPX live in Lot & ROW as centerlines. */
   const [barangays, setBarangays] = useState<string[]>(editing?.location.barangays ?? []);
   const [nested, setNested] = useState<null | "ctr" | "eng">(null);
-
-  const toggleBarangay = (b: string) =>
-    setBarangays((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]));
 
   const valid = f.name.trim().length > 3 && !!f.implementorId && !!f.inchargeId && barangays.length > 0;
 
@@ -228,6 +238,7 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
       contractedStart: f.contractedStart, contractedCompletion: f.contractedCompletion,
       actualStart: f.actualStart || null, actualCompletion: f.actualCompletion || null,
       percent: f.percent, notes: f.notes,
+      treatment, roadId: roadId || undefined,
     };
     if (editing) {
       updateRecord(editing.id, base);
@@ -278,7 +289,7 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
 
           <div>
             <label className={labelCls}>Project type</label>
-            <select className={inputCls} value={type} onChange={(e) => setType(e.target.value as ProjectType)}>
+            <select className={inputCls} value={type} onChange={(e) => changeType(e.target.value as ProjectType)}>
               {PROJECT_TYPES.map((t) => <option key={t}>{t}</option>)}
             </select>
           </div>
@@ -306,6 +317,29 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
           <div>
             <label className={labelCls}>Year of project bid</label>
             <input className={inputCls} value={f.bidYear} onChange={(e) => setF({ ...f, bidYear: e.target.value })} inputMode="numeric" />
+          </div>
+
+          {/* road / street link — the proper name this work is performed on */}
+          <div className="col-span-2 sm:col-span-3">
+            <label className={labelCls}>Road / street (link to registry)</label>
+            <SearchSelect
+              value={roadId}
+              onChange={(v) => setRoadId(v as string)}
+              options={roadOptions}
+              placeholder="Search the road & street registry…"
+            />
+            <p className="mt-1 font-mono text-[9px] leading-relaxed text-text-400">
+              Links this record to a named road — the basis of the road inventory. {roadOptions.length} city roads registered.
+            </p>
+          </div>
+
+          {/* road treatment — the pavement stage this work produces */}
+          <div>
+            <label className={labelCls}>Road treatment</label>
+            <select className={inputCls} value={treatment ?? ""} onChange={(e) => setTreatment((e.target.value || null) as Treatment | null)}>
+              <option value="">— none (non-pavement work) —</option>
+              {TREATMENT_ORDER.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
 
           <FkSelect
@@ -338,25 +372,17 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
               </span>
             </div>
             <p className="mt-1 font-mono text-[9px] leading-relaxed text-text-400">
-              The project is located by barangay — select every barangay it covers. For vast projects spanning several barangays, use multiple selection.
+              The project is located by barangay — select every barangay it covers. Type to filter the {brgyOptions.length}-barangay registry.
             </p>
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {BARANGAY_LIST.map((b) => {
-                const on = barangays.includes(b);
-                return (
-                  <button
-                    key={b} type="button" onClick={() => toggleBarangay(b)}
-                    title={brgyPsgc(b) ? `PSGC ${brgyPsgc(b)}` : undefined}
-                    className={`cursor-pointer rounded-[3px] border px-2 py-1 font-mono text-[9.5px] font-semibold tracking-wider uppercase transition-all duration-150 ${
-                      on
-                        ? "border-pine-600 bg-pine-600 text-paper-100 shadow-[0_2px_8px_rgba(23,92,67,0.35)]"
-                        : "border-line-400 bg-paper-100 text-text-600 hover:border-pine-500 hover:text-pine-600"
-                    }`}
-                  >
-                    {on && <IconCheck size={9} className="mr-1 inline" />}{b}
-                  </button>
-                );
-              })}
+            <div className="mt-2.5">
+              <SearchSelect
+                multiple
+                value={barangays}
+                onChange={(v) => setBarangays(v as string[])}
+                options={brgyOptions}
+                placeholder="Search & select barangays…"
+                invalid={barangays.length === 0}
+              />
             </div>
 
             {/* how the project pin is resolved */}
