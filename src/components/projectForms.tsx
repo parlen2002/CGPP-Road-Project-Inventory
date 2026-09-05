@@ -5,7 +5,6 @@ import {
   type ProjectType, type ModeOfImplementation, type ProjectRecord,
   type Contractor, type Engineer,
 } from "../data/registry";
-import { BARANGAY_POINTS } from "../data/roads";
 import { useStore, addRecord, updateRecord, addContractor, updateContractor, addEngineer, updateEngineer, nextRecordId } from "../state/store";
 import { toast } from "./toast";
 import { IconClose, IconPlus, IconPin, IconCheck } from "./icons";
@@ -177,10 +176,11 @@ export function EngineerForm({ onClose, editing, onCreated }: {
 
 /* ─────────────── Project encoder / editor ─────────────── */
 
-const BARANGAY_LIST = Object.keys(BARANGAY_POINTS);
-
 export function ProjectForm({ onClose, editing }: { onClose: () => void; editing?: ProjectRecord | null }) {
-  const { records, contractors, engineers } = useStore();
+  const { records, contractors, engineers, barangays: brgyRegistry } = useStore();
+  /* live barangay registry — PSGC code shown on hover, removable entries drop out automatically */
+  const BARANGAY_LIST = brgyRegistry.map((b) => b.name);
+  const brgyPsgc = (name: string) => brgyRegistry.find((b) => b.name === name)?.psgc ?? "";
   const today = new Date().toISOString().slice(0, 10);
   const plus180 = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
   const [type, setType] = useState<ProjectType>(editing?.type ?? "Concreting");
@@ -342,6 +342,7 @@ export function ProjectForm({ onClose, editing }: { onClose: () => void; editing
                 return (
                   <button
                     key={b} type="button" onClick={() => toggleBarangay(b)}
+                    title={brgyPsgc(b) ? `PSGC ${brgyPsgc(b)}` : undefined}
                     className={`cursor-pointer rounded-[3px] border px-2 py-1 font-mono text-[9.5px] font-semibold tracking-wider uppercase transition-all duration-150 ${
                       on
                         ? "border-pine-600 bg-pine-600 text-paper-100 shadow-[0_2px_8px_rgba(23,92,67,0.35)]"

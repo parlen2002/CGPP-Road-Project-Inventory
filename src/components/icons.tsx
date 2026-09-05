@@ -175,6 +175,21 @@ export const IconSave = (p: P) => (
   </svg>
 );
 
+export const IconUpload = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 15V4M12 4 7.5 8.5M12 4l4.5 4.5" />
+    <path d="M5 15v4a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-4" />
+  </svg>
+);
+
+export const IconLock = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="5.5" y="10.5" width="13" height="9.5" rx="1" />
+    <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+    <path d="M12 14.5v2" />
+  </svg>
+);
+
 export const IconParcels = (p: P) => (
   <svg {...base(p)}>
     <path d="M4 5.5 10.5 4l9 1.8L20 19l-7.5 1.4L4 18.6V5.5Z" />

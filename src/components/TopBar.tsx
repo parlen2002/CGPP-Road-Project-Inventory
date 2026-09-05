@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Seal, IconSearch } from "./icons";
-import { useStore } from "../state/store";
+import { Seal, IconSearch, IconLock } from "./icons";
+import { useStore, setAdmin } from "../state/store";
+import { toast } from "./toast";
 
 export default function TopBar({ onSearch }: { onSearch: (q: string) => void }) {
-  const { records } = useStore();
+  const { records, admin } = useStore();
   const [now, setNow] = useState(() => new Date());
   const [q, setQ] = useState("");
 
@@ -47,6 +48,25 @@ export default function TopBar({ onSearch }: { onSearch: (q: string) => void }) 
           className="w-full rounded-[3px] border border-ink-600 bg-ink-950/70 py-2 pr-3 pl-9 font-mono text-[11.5px] text-paper-100 placeholder:text-paper-300/35 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/40 focus:outline-none"
         />
       </div>
+
+      {/* program-admin gate — unlocks removal of uploaded files & registry deletes */}
+      <button
+        onClick={() => {
+          const next = !admin;
+          setAdmin(next);
+          toast(next ? "Admin mode enabled" : "Admin mode disabled", "info",
+            next ? "uploaded-file & registry removal unlocked" : "records are now read-protected");
+        }}
+        title={admin ? "Program admin — removal unlocked. Click to lock." : "Read-only. Click to enable program admin."}
+        className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[3px] border px-2.5 py-2 font-mono text-[9px] font-bold tracking-[0.14em] uppercase transition-all ${
+          admin
+            ? "border-amber-500 bg-amber-500/15 text-amber-400 shadow-[0_0_0_1px_rgba(240,163,43,0.3)]"
+            : "border-ink-600 bg-ink-950/70 text-paper-300/50 hover:border-amber-500/40 hover:text-paper-300"
+        }`}
+      >
+        <IconLock size={12} />
+        {admin ? "Admin · on" : "Read-only"}
+      </button>
 
       <div className="hidden shrink-0 items-center gap-1.5 rounded-[3px] border border-ink-600 bg-ink-950/70 px-2.5 py-1.5 sm:flex">
         <span className="dot-live h-2 w-2 rounded-full bg-pine-400" />

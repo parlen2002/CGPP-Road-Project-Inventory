@@ -15,6 +15,7 @@ import { PageHeader, Reveal, CornerTicks, CountUp } from "../components/ui";
 import { toast } from "../components/toast";
 import ConfirmDialog from "../components/confirm";
 import { IconPin, IconEdit, IconTrash, IconDownload, IconPlus, IconCheck } from "../components/icons";
+import BarangayRegistry from "../components/BarangayRegistry";
 
 const BASEMAPS = {
   street: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", label: "OSM street", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' },
@@ -51,10 +52,10 @@ function DrawEvents({ active, onPoint, onCursor }: {
   return null;
 }
 
-type Tab = "cadastre" | "centerlines" | "affected";
+type Tab = "cadastre" | "centerlines" | "affected" | "barangays";
 
 export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, number], zoom?: number) => void }) {
-  const { records, parcels: parcelsAll, centerlines } = useStore();
+  const { records, parcels: parcelsAll, centerlines, barangays } = useStore();
   /* shims — map the old local-state API onto the shared store */
   const parcels = parcelsAll;
   const setParcels = (v: Parcel[] | null) => storeSetParcels(v ?? []);
@@ -116,9 +117,9 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
         const [la, ln] = [l.ring.reduce((s, p) => s + p[0], 0) / l.ring.length, l.ring.reduce((s, p) => s + p[1], 0) / l.ring.length];
         let brgy = "—";
         let bd = Infinity;
-        for (const [name, pt] of Object.entries(BARANGAY_POINTS)) {
-          const d = (pt[0] - la) ** 2 + (pt[1] - ln) ** 2;
-          if (d < bd) { bd = d; brgy = name; }
+        for (const b of barangays) {
+          const d = (b.lat - la) ** 2 + (b.lng - ln) ** 2;
+          if (d < bd) { bd = d; brgy = b.name; }
         }
         const rawVal = l.props.ZONAL_VAL ?? l.props.zonal_val ?? l.props.MV ?? l.props.mv ?? l.props.VALUE ?? l.props.value;
         const valuePerM2 = gov ? 0 : (typeof rawVal === "number" && isFinite(rawVal) && rawVal > 0 ? Math.round(rawVal) : 5000);
@@ -241,8 +242,8 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
       </Reveal>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-12">
-        {/* ─────────── MAP ─────────── */}
-        <div className="lg:col-span-7 xl:col-span-8">
+        {/* ─────────── MAP (hidden on the barangays tab to give the registry full width) ─────────── */}
+        {tab === "barangays" ? null : <div className="lg:col-span-7 xl:col-span-8">
           <Reveal className="lg:sticky lg:top-4">
             <div className="relative overflow-hidden rounded-[4px] border-2 border-ink-800">
               <CornerTicks />
@@ -368,14 +369,15 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
               </div>
             </div>
           </Reveal>
-        </div>
+        </div>}
 
         {/* ─────────── PANELS ─────────── */}
-        <div className="lg:col-span-5 xl:col-span-4">
+        <div className={tab === "barangays" ? "lg:col-span-12" : "lg:col-span-5 xl:col-span-4"}>
           <div className="flex overflow-hidden rounded-t-[4px] border-2 border-b-0 border-ink-800">
             <TabBtn id="cadastre" label="Cadastre" n={parcels?.length ?? 0} />
             <TabBtn id="centerlines" label="Centerlines" n={centerlines.length} />
             <TabBtn id="affected" label="Affected" n={analysis?.rows.length ?? 0} />
+            <TabBtn id="barangays" label="Barangays" n={barangays.length} />
           </div>
 
           {/* CADASTRE */}
@@ -620,6 +622,13 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
                   </p>
                 </>
               )}
+            </div>
+          )}
+
+          {/* BARANGAY REGISTRY — expands to full width (map hidden on this tab) */}
+          {tab === "barangays" && (
+            <div className="mt-4">
+              <BarangayRegistry onLocate={onLocate} />
             </div>
           )}
         </div>

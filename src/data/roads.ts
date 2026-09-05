@@ -216,19 +216,10 @@ export const barangayCentroids: { name: string; point: [number, number] }[] = [
   { name: "San Rafael", point: [9.7835, 118.7700] },
 ];
 
-export const BARANGAY_POINTS: Record<string, [number, number]> = {
-  "San Pedro (Poblacion)": [9.7362, 118.7386], "San Jose": [9.7435, 118.7435],
-  "Liwanag": [9.7385, 118.731], "Mandaragat": [9.7455, 118.7495], "Tagumpay": [9.7395, 118.7535],
-  "Santa Monica": [9.7285, 118.7545], "San Manuel": [9.7535, 118.7265], "Tiniguiban": [9.7565, 118.7335],
-  "Bancao-Bancao": [9.721, 118.7415], "Bacungan": [9.769, 118.749], "Iwahig": [9.7095, 118.729],
-  "Irawan": [9.718, 118.7235], "Sicsican": [9.7955, 118.7805], "San Rafael": [9.7835, 118.77],
-  "Santa Lourdes": [9.751, 118.7205], "Irigang": [9.7005, 118.7215], "Balile": [9.774, 118.7395],
-  "Salvacion": [9.789, 118.7525], "Tinigban": [9.7612, 118.7312], "Tanglaw": [9.7795, 118.759],
-  "Bagong Sikat": [9.7682, 118.7275], "Bagong Bayan": [9.7648, 118.735], "Iwahig Colony": [9.7095, 118.729],
-  "Manalo": [9.7715, 118.724], "Montoble": [9.7855, 118.7455], "Alvarez": [9.7762, 118.749],
-  "Langogan": [9.7918, 118.7662], "Maoyod": [9.7865, 118.7595], "Magsaysay": [9.7945, 118.758],
-  "Marufinas": [9.7998, 118.7515], "San Isidro": [9.7698, 118.7402],
-};
+/* Barangay centroids live in the barangay registry (data/barangays.ts) and are
+   editable at runtime through the store. This re-export keeps the static
+   imports working; live components read the store's `barangays` instead. */
+export { BARANGAY_POINTS } from "./barangays";
 
 export const barangayCount = 66;
 export const pavedPct = +((pavedKm / surfaceLadder.opened) * 100).toFixed(1); // concrete + asphalt share

@@ -1,17 +1,15 @@
-import { useRef } from "react";
 import {
   statusOf, typeShort, fmtPeso, fmtPesoM, fmtDate, durationOf,
   type ProjectRecord,
 } from "../data/registry";
 import {
-  useStore, setPercent, setActualDates,
-  addAttachment, deleteAttachment, nextAttachmentId, recordPoint, pinSourceOf,
+  useStore, setPercent, setActualDates, recordPoint, pinSourceOf,
 } from "../state/store";
-import { parseExifGPS, makeThumb } from "../lib/exif";
 import { toast } from "./toast";
 import { CornerTicks } from "./ui";
-import { IconClose, IconPin, IconArrow, IconCamera, IconUser, IconCalendar, IconEdit, IconTrash, IconPlus } from "./icons";
+import { IconClose, IconPin, IconArrow, IconUser, IconCalendar, IconEdit, IconTrash } from "./icons";
 import ROWImpact from "./ROWImpact";
+import DocumentIntake from "./DocumentIntake";
 
 function KV({ k, v, mono = true }: { k: string; v: React.ReactNode; mono?: boolean }) {
   return (
@@ -34,8 +32,6 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
   const impl = record ? contractors.find((c) => c.id === record.implementorId) : undefined;
   const engr = record ? engineers.find((e) => e.id === record.inchargeId) : undefined;
 
-  const fileRef = useRef<HTMLInputElement>(null);
-
   if (!record) return null;
   const meta = statusOf(record);
   const pct = record.percent;
@@ -43,33 +39,6 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
   const pin = pinSourceOf(record);
   const pt = recordPoint(record);
   const initials = (n: string) => n.replace("Engr. ", "").split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-
-  /* ---- field file intake: geotagged images (EXIF GPS) / PDFs ---- */
-  const onFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
-    for (const file of Array.from(files)) {
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-      const sizeKB = Math.max(1, Math.round(file.size / 1024));
-      const now = new Date().toISOString();
-      if (isPdf) {
-        addAttachment(record.id, { id: nextAttachmentId(record.id), kind: "PDF", name: file.name, sizeKB, lat: null, lng: null, uploadedAt: now });
-        toast(file.name, "saved", "PDF filed to project folder");
-      } else if (file.type.startsWith("image/")) {
-        const gps = parseExifGPS(await file.arrayBuffer());
-        const thumb = (await makeThumb(file)) ?? undefined;
-        addAttachment(record.id, {
-          id: nextAttachmentId(record.id), kind: "Geotagged Image", name: file.name, sizeKB,
-          lat: gps ? gps[0] : null, lng: gps ? gps[1] : null, thumb, uploadedAt: now,
-        });
-        toast(file.name, gps ? "saved" : "info",
-          gps ? `EXIF GPS locked — ${gps[0].toFixed(5)}N ${gps[1].toFixed(5)}E · pin now at the capture point`
-            : "no GPS metadata found — pin keeps its current resolution");
-      } else {
-        toast(file.name, "info", "Only geotagged images or PDFs are accepted");
-      }
-    }
-    if (fileRef.current) fileRef.current.value = "";
-  };
 
   return (
     <div className="anim-fade-in fixed inset-0 z-40">
@@ -299,78 +268,8 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             </div>
           </div>
 
-          {/* field files — geotagged images / PDFs */}
-          <div className="mt-4 rounded-[3px] border-2 border-ink-800 bg-paper-100">
-            <div className="flex items-center justify-between gap-2 border-b border-line-300 bg-ink-900 px-4 py-2.5">
-              <p className="flex items-center gap-2 font-mono text-[9.5px] font-bold tracking-[0.18em] text-paper-100 uppercase">
-                <IconCamera size={13} className="text-amber-400" /> Field files
-                <span className="rounded-[3px] bg-ink-950 px-1.5 py-0.5 font-bold text-amber-400">{record.attachments.length}</span>
-              </p>
-              <p className="hidden font-mono text-[8.5px] tracking-[0.14em] text-paper-300/50 uppercase sm:block">geotagged images · PDFs</p>
-            </div>
-
-            <div className="p-4">
-              {record.attachments.length === 0 && (
-                <p className="rounded-[3px] border border-dashed border-line-400 px-3 py-3 font-mono text-[9.5px] leading-relaxed text-text-400">
-                  No files yet. A geotagged photo sets the exact project station from its EXIF GPS; PDFs (plans, reports, bid docs) file into the project folder.
-                </p>
-              )}
-              <ul className="space-y-2">
-                {record.attachments.map((a) => (
-                  <li key={a.id} className="group/att flex items-center gap-3 rounded-[3px] border border-line-300 bg-white/60 p-2.5 transition-colors hover:border-ink-800">
-                    {a.kind === "Geotagged Image" ? (
-                      a.thumb
-                        ? <img src={a.thumb} alt={a.name} className="h-11 w-11 shrink-0 rounded-[3px] border border-ink-800 object-cover" />
-                        : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[3px] border border-ink-800 bg-ink-900 text-pine-400"><IconCamera size={16} /></span>
-                    ) : (
-                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[3px] border border-ink-800 bg-ink-900 font-display text-[11px] font-bold text-coral-400">PDF</span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[11.5px] font-semibold text-ink-900" title={a.name}>{a.name}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        {a.kind === "Geotagged Image" ? (
-                          a.lat != null ? (
-                            <span className="rounded-[3px] bg-pine-600/15 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-pine-600 uppercase">
-                              Geotag · {a.lat.toFixed(5)}N {a.lng!.toFixed(5)}E
-                            </span>
-                          ) : (
-                            <span className="rounded-[3px] bg-coral-500/15 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-coral-600 uppercase">
-                              Image · no GPS metadata
-                            </span>
-                          )
-                        ) : (
-                          <span className="rounded-[3px] bg-ink-900/8 px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wider text-text-600 uppercase">Document</span>
-                        )}
-                        <span className="font-mono text-[8.5px] text-text-400">{a.sizeKB >= 1024 ? `${(a.sizeKB / 1024).toFixed(1)} MB` : `${a.sizeKB} KB`}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => { deleteAttachment(record.id, a.id); toast(a.name, "deleted", "file removed from project folder"); }}
-                      className="shrink-0 cursor-pointer p-1.5 text-text-400 transition-colors hover:text-coral-600"
-                      title="Remove file"
-                    >
-                      <IconTrash size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              <input
-                ref={fileRef}
-                type="file"
-                multiple
-                accept="image/*,application/pdf,.pdf"
-                className="hidden"
-                onChange={(e) => { void onFiles(e.target.files); }}
-              />
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[3px] border-2 border-dashed border-ink-600/60 bg-paper-200/70 py-2.5 font-mono text-[9.5px] font-bold tracking-[0.16em] text-text-600 uppercase transition-all hover:border-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
-              >
-                <IconPlus size={13} /> Upload geotagged image / PDF
-              </button>
-            </div>
-          </div>
+          {/* supporting documents — staging intake, admin-gated removal */}
+          <DocumentIntake record={record} />
 
           {/* lot overlap + ROW impact */}
           <ROWImpact record={record} onOpenCadastre={onOpenCadastre} />

@@ -7,6 +7,7 @@ import {
   generateSampleCadastral, seedCenterlines,
   type Parcel, type Centerline,
 } from "../data/cadastre";
+import { seedBarangays, type Barangay } from "../data/barangays";
 
 export interface Snapshot {
   records: ProjectRecord[];
@@ -14,9 +15,11 @@ export interface Snapshot {
   engineers: Engineer[];
   parcels: Parcel[];         // cadastre (QGIS shapefile basis)
   centerlines: Centerline[]; // road centerlines (KML / GPX / drawn), linked to records
+  barangays: Barangay[];     // barangay registry — editable administrative basis
+  admin: boolean;            // program-admin mode gates removal of uploaded files
 }
 
-const KEY = "rpis-store-v5"; // v5 = attachment-based location model; older snapshots are reseeded
+const KEY = "rpis-store-v6"; // v6 = barangay registry + admin gate; older snapshots are reseeded
 
 function load(): Snapshot {
   try {
@@ -29,13 +32,15 @@ function load(): Snapshot {
         Array.isArray(p.records[0]?.location?.barangays) &&
         Array.isArray(p.records[0]?.attachments) &&
         Array.isArray(p.contractors) && Array.isArray(p.engineers) &&
-        Array.isArray(p.parcels) && Array.isArray(p.centerlines)
+        Array.isArray(p.parcels) && Array.isArray(p.centerlines) &&
+        Array.isArray(p.barangays) && typeof p.admin === "boolean"
       ) return p;
     }
   } catch { /* corrupted storage → fall back to seed */ }
   return {
     records: seedRecords, contractors: seedContractors, engineers: seedEngineers,
     parcels: generateSampleCadastral(), centerlines: seedCenterlines,
+    barangays: seedBarangays, admin: false,
   };
 }
 
@@ -126,7 +131,21 @@ export function recordPoint(r: ProjectRecord): [number, number] {
       cl.line.reduce((s, p) => s + p[1], 0) / cl.line.length,
     ];
   }
+  /* tier 3 — live barangay-registry centroids (falls back to the static map) */
+  const live = snapshot.barangays
+    .filter((b) => r.location.barangays.includes(b.name))
+    .map((b) => [b.lat, b.lng] as [number, number]);
+  if (live.length) {
+    return [
+      live.reduce((s, p) => s + p[0], 0) / live.length,
+      live.reduce((s, p) => s + p[1], 0) / live.length,
+    ];
+  }
   return projectPoint(r);
+}
+
+export function setAdmin(admin: boolean) {
+  mutate({ ...snapshot, admin });
 }
 
 export type PinKind = "geotag" | "centerline" | "barangay";
@@ -227,4 +246,63 @@ export function nextRecordId(records: ProjectRecord[]): string {
     })
     .reduce((a, b) => Math.max(a, b), 0);
   return `RPIS-${year}-${String(n + 1).padStart(3, "0")}`;
+}
+
+/* ---------------- barangay registry ---------------- */
+
+export function nextBarangayId(): string {
+  const n = snapshot.barangays
+    .map((b) => parseInt(b.id.replace("BRGY-", ""), 10))
+    .filter((x) => !Number.isNaN(x))
+    .reduce((a, b) => Math.max(a, b), 0);
+  return `BRGY-${String(n + 1).padStart(3, "0")}`;
+}
+
+export function addBarangay(b: Omit<Barangay, "id">): string {
+  const id = nextBarangayId();
+  mutate({ ...snapshot, barangays: [...snapshot.barangays, { ...b, id }] });
+  return id;
+}
+
+export function updateBarangay(id: string, patch: Partial<Omit<Barangay, "id">>) {
+  mutate({ ...snapshot, barangays: snapshot.barangays.map((b) => (b.id === id ? { ...b, ...patch } : b)) });
+}
+
+/**
+ * Renames a barangay and propagates the new name to every project
+ * record that references the old one.
+ */
+export function renameBarangay(id: string, from: string, to: string) {
+  mutate({
+    ...snapshot,
+    barangays: snapshot.barangays.map((b) => (b.id === id ? { ...b, name: to } : b)),
+    records: snapshot.records.map((r) =>
+      r.location.barangays.includes(from)
+        ? { ...r, location: { ...r.location, barangays: r.location.barangays.map((x) => (x === from ? to : x)) } }
+        : r),
+  });
+}
+
+/**
+ * Removes a barangay and strips its name from every project record's
+ * coverage. Returns the number of records that referenced it.
+ */
+export function deleteBarangay(id: string): number {
+  const bgy = snapshot.barangays.find((b) => b.id === id);
+  if (!bgy) return 0;
+  const linked = snapshot.records.filter((r) => r.location.barangays.includes(bgy.name)).length;
+  mutate({
+    ...snapshot,
+    barangays: snapshot.barangays.filter((b) => b.id !== id),
+    records: snapshot.records.map((r) =>
+      r.location.barangays.includes(bgy.name)
+        ? { ...r, location: { ...r.location, barangays: r.location.barangays.filter((x) => x !== bgy.name) } }
+        : r),
+  });
+  return linked;
+}
+
+/** name → centroid map built from the live registry */
+export function barangayPoints(brgs: Barangay[]): Record<string, [number, number]> {
+  return Object.fromEntries(brgs.map((b) => [b.name, [b.lat, b.lng] as [number, number]]));
 }
