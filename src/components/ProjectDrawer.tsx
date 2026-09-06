@@ -199,9 +199,8 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             </div>
           </div>
 
-          <div ref={rowMapRef}>
-            <ROWImpact record={record} onOpenCadastre={onOpenCadastre} />
-          </div>
+          {/* the print capture targets the map frame only — buffer & lot controls never print */}
+          <ROWImpact record={record} onOpenCadastre={onOpenCadastre} captureRef={rowMapRef} />
 
           <DocumentIntake record={record} />
 

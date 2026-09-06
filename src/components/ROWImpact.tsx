@@ -8,6 +8,7 @@ import { fmtPesoM } from "../data/registry";
 import { useStore, linkedCenterline } from "../state/store";
 import { runROWAnalysis } from "../data/cadastre";
 import { fmtArea, lineLengthM, fmtKm } from "../lib/geo";
+import CenterlineBufferModal from "./CenterlineBufferModal";
 
 function Fit({ line }: { line: [number, number][] }) {
   const map = useMap();
@@ -21,12 +22,15 @@ function Fit({ line }: { line: [number, number][] }) {
   return null;
 }
 
-export default function ROWImpact({ record, onOpenCadastre }: {
+export default function ROWImpact({ record, onOpenCadastre, captureRef }: {
   record: ProjectRecord;
   onOpenCadastre?: () => void;
+  /** attached to the map frame only — print snapshots never include the controls */
+  captureRef?: React.Ref<HTMLDivElement>;
 }) {
   const { parcels } = useStore();
   const [tab, setTab] = useState<"map" | "lots">("map");
+  const [bufferOpen, setBufferOpen] = useState(false);
   const axis = linkedCenterline(record);
   const row = useMemo(() => (axis ? runROWAnalysis(parcels, axis) : null), [parcels, axis]);
 
@@ -61,7 +65,18 @@ export default function ROWImpact({ record, onOpenCadastre }: {
           Lot overlap · ROW impact
           <span className="rounded-[3px] bg-ink-950 px-1.5 py-0.5 font-bold text-amber-400">{row.rows.length}</span>
         </p>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
+          <button onClick={() => setBufferOpen(true)} title="Adjust the centerline buffer radius"
+            className="group flex cursor-pointer items-center gap-1 rounded-[3px] border border-teal-500/60 px-2 py-1 font-mono text-[8.5px] font-bold tracking-wider text-teal-400 uppercase transition-all hover:border-teal-400 hover:bg-teal-500/15">
+            <span className="text-[11px] leading-none transition-transform group-hover:scale-125">±</span> Buffer
+          </button>
+          {onOpenCadastre && (
+            <button onClick={onOpenCadastre} title="Open the full centerline editor in Lot & ROW Analysis"
+              className="cursor-pointer rounded-[3px] border border-ink-600 px-2 py-1 font-mono text-[8.5px] font-bold tracking-wider text-paper-300/60 uppercase transition-colors hover:border-amber-500/60 hover:text-amber-400">
+              Lot &amp; ROW ⤢
+            </button>
+          )}
+          <span className="mx-0.5 h-4 w-px bg-ink-600" />
           {(["map", "lots"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`cursor-pointer rounded-[3px] border px-2 py-1 font-mono text-[8.5px] font-bold tracking-wider uppercase transition-colors ${
@@ -98,7 +113,7 @@ export default function ROWImpact({ record, onOpenCadastre }: {
         </div>
 
         {tab === "map" ? (
-          <div className="mt-3 overflow-hidden rounded-[3px] border border-ink-800">
+          <div ref={captureRef} className="mt-3 overflow-hidden rounded-[3px] border border-ink-800">
             <MapContainer center={axis.line[0]} zoom={14} className="h-[280px] w-full" scrollWheelZoom={false} zoomControl={false} dragging={false}>
               <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" crossOrigin="anonymous" />
               <Fit line={axis.line} />
@@ -147,6 +162,16 @@ export default function ROWImpact({ record, onOpenCadastre }: {
           Axis {axis.id} · via {axis.source} · {axis.name} · {fmtKm(lineLengthM(axis.line))} — government land incurs no acquisition cost.
         </p>
       </div>
+
+      {/* buffer adjuster — portaled, so it never appears on the printed sheet */}
+      {bufferOpen && (
+        <CenterlineBufferModal
+          record={record}
+          axis={axis}
+          onClose={() => setBufferOpen(false)}
+          onOpenFull={onOpenCadastre ? () => onOpenCadastre() : undefined}
+        />
+      )}
     </div>
   );
 }

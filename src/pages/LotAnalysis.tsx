@@ -8,6 +8,7 @@ import { fmtArea, lineLengthM, fmtKm, polygonAreaM2, type LatLng as GeoLatLng } 
 import { fmtPesoM } from "../data/registry";
 import { toast } from "../components/toast";
 import ConfirmDialog from "../components/confirm";
+import BufferControl from "../components/BufferControl";
 import { IconUpload, IconTrash, IconPin, IconDownload } from "../components/icons";
 
 type Tab = "cadastre" | "centerlines" | "affected";
@@ -222,14 +223,9 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
                         </button>
                       </div>
                       <p className="mt-0.5 font-mono text-[9px] tracking-wider text-text-400 uppercase">via {c.source} · {c.ref} · {fmtKm(lineLengthM(c.line))}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <label className="font-mono text-[8.5px] tracking-wider text-text-400 uppercase">Buffer ±</label>
-                        <input type="range" min={3} max={20} step={1} value={c.radiusM}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => updateCenterline(c.id, { radiusM: parseInt(e.target.value, 10) })}
-                          className="rpis-slider flex-1"
-                          style={{ "--track": `linear-gradient(90deg, #f0a32b ${((c.radiusM - 3) / 17) * 100}%, #cbd4c2 ${((c.radiusM - 3) / 17) * 100}%)` } as React.CSSProperties} />
-                        <span className="w-10 text-right font-mono text-[11px] font-bold text-ink-900">{c.radiusM} m</span>
+                      {/* slider ⇄ custom input, two-way synced (1–60 m) */}
+                      <div className="mt-2">
+                        <BufferControl value={c.radiusM} onChange={(v) => updateCenterline(c.id, { radiusM: v })} />
                       </div>
                       <select value={c.projectId ?? ""} onClick={(e) => e.stopPropagation()}
                         onChange={(e) => updateCenterline(c.id, { projectId: e.target.value || null })}
