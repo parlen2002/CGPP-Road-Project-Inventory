@@ -40,6 +40,17 @@ export function Modal({ title, sheet, onClose, children, wide }: {
   );
 }
 
+/* module-level on purpose — an inner definition would remount every field on
+   each keystroke and steal focus from the input being typed in */
+function Field({ label, children, span }: { label: string; children: ReactNode; span?: boolean }) {
+  return (
+    <div className={span ? "col-span-2 sm:col-span-3" : ""}>
+      <label className={labelCls}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
 export function ProjectForm({ onClose, editing }: { onClose: () => void; editing?: ProjectRecord | null }) {
   const { records, contractors, engineers, barangays, roadsReg, catalogItems } = useStore();
   const today = new Date().toISOString().slice(0, 10);

@@ -15,6 +15,20 @@ import { useStore, setSpecVariant, addOrder } from "../state/store";
 import { toast } from "./toast";
 import { Modal, inputCls, labelCls } from "./projectForms";
 
+/* module-level on purpose — defining these inside a form recreates their
+   component type on every keystroke, which remounts the inputs and steals focus */
+function SectionBlock({ code, name, children }: { code: string; name: string; children: ReactNode }) {
+  return (
+    <div className="rounded-[4px] border border-line-300 bg-paper-200/60 p-3">
+      <p className="mb-2.5 flex items-center gap-2 font-mono text-[9.5px] font-bold tracking-[0.18em] text-ink-900 uppercase">
+        <span className="rounded-[2px] bg-ink-900 px-1.5 py-0.5 text-[8.5px] text-amber-400">{code}</span>
+        {name}
+      </p>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{children}</div>
+    </div>
+  );
+}
+
 function SpecField({ label, value, onChange, unit, select }: {
   label: string; value: string; onChange: (v: string) => void; unit?: string; select?: string[];
 }) {
@@ -64,16 +78,6 @@ export function SpecForm({ record, variant, onClose }: {
     toast(`${meta.title} saved`, "updated", `${record.id} · ${filledCount(specs)} of 24 items encoded`);
     onClose();
   };
-
-  const SectionBlock = ({ code, name, children }: { code: string; name: string; children: ReactNode }) => (
-    <div className="rounded-[4px] border border-line-300 bg-paper-200/60 p-3">
-      <p className="mb-2.5 flex items-center gap-2 font-mono text-[9.5px] font-bold tracking-[0.18em] text-ink-900 uppercase">
-        <span className="rounded-[2px] bg-ink-900 px-1.5 py-0.5 text-[8.5px] text-amber-400">{code}</span>
-        {name}
-      </p>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{children}</div>
-    </div>
-  );
 
   return (
     <Modal title={meta.title} sheet={`project_records · ${record.id} · ${variant}`} onClose={onClose} wide>
