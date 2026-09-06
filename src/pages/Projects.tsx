@@ -353,8 +353,7 @@ export default function Projects({ onLocate, onOpenRoad, onOpenCadastre }: {
                       {def?.label ?? p.role}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <p className="font-mono text-[9.5px] text-paper-300/45">{p.email}</p>
+                  <div className="mt-2 flex items-center justify-end">
                     <span className="rounded-[3px] bg-ink-950 px-2 py-1 font-mono text-[10px] font-bold text-amber-400">{jobs.length} assigned</span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-ink-700 pt-3">

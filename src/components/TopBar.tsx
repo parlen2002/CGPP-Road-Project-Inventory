@@ -176,10 +176,7 @@ export default function TopBar() {
             {can.users && (
               <button onClick={() => { setMenuOpen(false); setAccessOpen(true); }}
                 className="flex w-full cursor-pointer items-center gap-2.5 border-t border-ink-700 bg-ink-950/60 px-4 py-3 text-left font-mono text-[10px] font-bold tracking-[0.16em] text-amber-400 uppercase transition-colors hover:bg-ink-950">
-                <IconGear size={14} /> Settings · roles & look
-                {pendingResets > 0 && (
-                  <span className="ml-auto grid h-4 min-w-4 place-items-center rounded-full bg-coral-500 px-1 font-mono text-[8.5px] font-bold text-paper-100">{pendingResets}</span>
-                )}
+                <IconGear size={14} /> Preferences
               </button>
             )}
           </div>

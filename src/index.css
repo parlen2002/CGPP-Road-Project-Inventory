@@ -150,9 +150,9 @@ input[type="range"].rpis-slider { -webkit-appearance: none; appearance: none; wi
   --color-paper-300: #26312a;
   --color-line-300: #33413a;
   --color-line-400: #47584e;
-  --color-text-900: #eaf0e7;
-  --color-text-600: #b3c2b4;
-  --color-text-400: #8fa092;
+  --color-text-900: #f2f7f0;
+  --color-text-600: #c6d4c8;
+  --color-text-400: #a3b5a6;
   --color-ink-950: #0b100d;
   --color-ink-900: #171f1a;
   --color-ink-850: #131a15;
@@ -174,9 +174,24 @@ input[type="range"].rpis-slider { -webkit-appearance: none; appearance: none; wi
 }
 [data-theme="dark"] .bg-paper-100 { background-color: #1e2821; }
 [data-theme="dark"] .bg-ink-900 { background-color: #171f1a; }
-[data-theme="dark"] .text-ink-900 { color: #eaf0e7; }
-[data-theme="dark"] .text-paper-100 { color: #eaf0e7; }
-[data-theme="dark"] .text-paper-300 { color: #c8d4ca; }
+[data-theme="dark"] .text-ink-900 { color: #f2f7f0; }
+[data-theme="dark"] .text-paper-100 { color: #f2f7f0; }
+[data-theme="dark"] .text-paper-300 { color: #d3dfd4; }
+
+/* low-opacity "muted chrome text" — paper-300 is a dark surface in dark mode,
+   so its opacity variants would be gray-on-gray; force readable light grays */
+[data-theme="dark"] .text-paper-300\/30 { color: rgba(199, 213, 202, 0.62); }
+[data-theme="dark"] .text-paper-300\/35 { color: rgba(199, 213, 202, 0.68); }
+[data-theme="dark"] .text-paper-300\/40 { color: rgba(205, 218, 207, 0.74); }
+[data-theme="dark"] .text-paper-300\/45 { color: rgba(209, 221, 211, 0.8); }
+[data-theme="dark"] .text-paper-300\/50 { color: rgba(213, 225, 215, 0.85); }
+[data-theme="dark"] .text-paper-300\/55 { color: rgba(216, 227, 218, 0.88); }
+[data-theme="dark"] .text-paper-300\/60 { color: rgba(220, 230, 222, 0.92); }
+[data-theme="dark"] .text-paper-300\/70 { color: rgba(226, 235, 227, 0.95); }
+[data-theme="dark"] .text-paper-300\/75 { color: rgba(230, 238, 231, 0.97); }
+[data-theme="dark"] .text-paper-300\/85 { color: rgba(236, 243, 237, 0.99); }
+[data-theme="dark"] .text-text-600 { color: #c6d4c8; }
+[data-theme="dark"] .text-text-400 { color: #a3b5a6; }
 [data-theme="dark"] .border-ink-800 { border-color: #2e3d34; }
 [data-theme="dark"] .border-ink-700 { border-color: #2e3d34; }
 [data-theme="dark"] .border-ink-600 { border-color: #3e5147; }
