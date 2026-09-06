@@ -4,7 +4,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../state/store";
 import { useAuth, login, loginGuest, signup, requestReset, ensureAuthReady } from "../state/authStore";
-import { CAP_KEYS, DIVISIONS, NAME_PREFIXES } from "../data/auth";
+import { DIVISIONS, NAME_PREFIXES } from "../data/auth";
+import { statusOf, STATUS_META, STATUS_LABELS, fmtPesoM } from "../data/registry";
 import { itemsOf } from "../data/catalogs";
 import { inputCls, labelCls } from "../components/projectForms";
 import { CatalogSelect } from "../components/CatalogSelect";
@@ -25,6 +26,46 @@ function LiveClock() {
     <div className="text-right leading-tight">
       <p className="font-mono text-[15px] font-semibold text-amber-400 tabular">{time} PHT</p>
       <p className="font-mono text-[8.5px] tracking-[0.18em] text-paper-300/50 uppercase">{date} · UTC+8</p>
+    </div>
+  );
+}
+
+/* Live budget status by project status — mirrors the geospatial console KPIs. */
+function BudgetPanel() {
+  const { records } = useStore();
+  const total = records.reduce((s, r) => s + r.contractedAmount, 0);
+  const byStatus = STATUS_LABELS.map((label) => {
+    const rows = records.filter((r) => statusOf(r).label === label);
+    return { label, meta: STATUS_META[label], count: rows.length, amount: rows.reduce((s, r) => s + r.contractedAmount, 0) };
+  }).filter((s) => s.count > 0);
+  return (
+    <div className="mt-6">
+      <p className="mb-2 font-mono text-[9px] font-bold tracking-[0.22em] text-paper-300/50 uppercase">Programmed budget · by status</p>
+      <div className="overflow-hidden rounded-[3px] border border-ink-700 bg-ink-950/60 p-3.5">
+        <p className="font-display text-[30px] leading-none font-bold text-paper-100">{fmtPesoM(total)}</p>
+        <p className="mt-1 font-mono text-[8.5px] tracking-[0.16em] text-paper-300/40 uppercase">{records.length} project records</p>
+        <div className="mt-3 space-y-2">
+          {byStatus.map((s) => {
+            const pct = total ? (s.amount / total) * 100 : 0;
+            return (
+              <div key={s.label}>
+                <div className="mb-0.5 flex items-center justify-between font-mono text-[8.5px] tracking-wider uppercase">
+                  <span className="flex items-center gap-1.5 font-semibold" style={{ color: s.meta.color }}>
+                    <i className="h-1.5 w-1.5 rounded-full" style={{ background: s.meta.color }} />{s.label} · {s.count}
+                  </span>
+                  <span className="text-paper-300/60 tabular">{fmtPesoM(s.amount)}</span>
+                </div>
+                <div className="h-[7px] overflow-hidden rounded-full bg-ink-800">
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.meta.color }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <p className="mt-2 font-mono text-[8.5px] tracking-wider text-paper-300/40 uppercase">
+        Live from the project ledger · WGS 84 · EPSG 4326
+      </p>
     </div>
   );
 }
@@ -140,42 +181,7 @@ export default function AuthScreen() {
               barangay-based locations, lot &amp; ROW analysis, A4 print sheets.
             </p>
 
-            <div className="mt-6">
-              <p className="mb-2 font-mono text-[9px] font-bold tracking-[0.22em] text-paper-300/50 uppercase">Role capability matrix</p>
-              <div className="overflow-hidden rounded-[3px] border border-ink-700">
-                <table className="w-full border-collapse">
-                  <thead className="bg-ink-950">
-                    <tr>
-                      <th className="py-1.5 pl-3 text-left font-mono text-[8.5px] font-semibold tracking-[0.14em] text-paper-300/50 uppercase">Role</th>
-                      {CAP_KEYS.map((c) => (
-                        <th key={c.key} className="px-1 py-1.5 text-center font-mono text-[8px] font-semibold tracking-[0.1em] text-paper-300/50 uppercase">{c.label.slice(0, 3)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roles.map((r) => (
-                      <tr key={r.id} className="border-t border-ink-700/60">
-                        <td className="py-1.5 pl-3">
-                          <span className="flex items-center gap-1.5 font-mono text-[9.5px] font-semibold uppercase" style={{ color: r.color }}>
-                            <i className="h-1.5 w-1.5 rounded-full" style={{ background: r.color }} />{r.label}
-                          </span>
-                        </td>
-                        {CAP_KEYS.map((c) => (
-                          <td key={c.key} className="px-1 py-1.5 text-center">
-                            {r.caps[c.key]
-                              ? <span className="font-mono text-[10px] font-bold text-pine-400">✓</span>
-                              : <span className="font-mono text-[10px] text-paper-300/25">—</span>}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="mt-2 font-mono text-[8.5px] tracking-wider text-paper-300/40 uppercase">
-                New signups join as Personnel · a Program Admin elevates roles after verification
-              </p>
-            </div>
+            <BudgetPanel />
           </div>
           <LiveClock />
         </div>
