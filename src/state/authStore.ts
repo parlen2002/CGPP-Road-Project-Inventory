@@ -223,14 +223,14 @@ export function deletePerson(id: string): { ok: boolean; error?: string } {
 
 /* ---------- signup (joins as Personnel — admin elevates later) ---------- */
 
-export async function signup(input: Omit<PersonInput, "role">): Promise<{ ok: boolean; error?: string }> {
+export async function signup(input: Omit<PersonInput, "role">): Promise<{ ok: boolean; id?: string; error?: string }> {
   const res = await addPerson({ ...input, role: "personnel" });
   if (res.ok) {
-    const s = getSnapshotState();
-    commit({ ...s, session: res.id! });
-    toast(`Welcome, ${joinName(input)}`, "saved", "Personnel role · a Program Admin can elevate you");
+    // no session is created — the account stays locked until a Program Admin
+    // verifies the signup and assigns a role.
+    toast(`Signup submitted — ${joinName(input)}`, "saved", "awaiting Program Admin verification");
   }
-  return { ok: res.ok, error: res.error };
+  return { ok: res.ok, id: res.id, error: res.error };
 }
 
 /* ---------- password reset (admin-verified) ---------- */

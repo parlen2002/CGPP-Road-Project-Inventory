@@ -48,6 +48,7 @@ export default function AuthScreen() {
     email: "", password: "", confirm: "",
     division: DIVISIONS[0].name, position: "",
   });
+  const [suDone, setSuDone] = useState("");
 
   /* forgot */
   const [fpEmail, setFpEmail] = useState("");
@@ -87,7 +88,9 @@ export default function AuthScreen() {
       prc: "", phone: "",
     });
     setBusy(false);
-    if (!r.ok) setError(r.error ?? "Registration failed.");
+    if (!r.ok) { setError(r.error ?? "Registration failed."); return; }
+    setSuDone(r.id ?? "");
+    setSu({ prefix: "Engr.", firstName: "", middleName: "", lastName: "", email: "", password: "", confirm: "", division: DIVISIONS[0].name, position: "" });
   };
 
   const doForgot = async (e: React.FormEvent) => {
@@ -232,7 +235,21 @@ export default function AuthScreen() {
               </form>
             )}
 
-            {mode === "signup" && (
+            {mode === "signup" && suDone && (
+              <div className="rounded-[3px] border border-pine-500/60 bg-pine-500/10 px-3 py-3">
+                <p className="font-mono text-[10.5px] font-bold text-pine-600">Signup {suDone} submitted for verification.</p>
+                <p className="mt-1 font-mono text-[9.5px] leading-relaxed text-text-600">
+                  A Program Administrator must confirm your account and assign a role before you can sign in. You will be
+                  notified once it is activated.
+                </p>
+                <button type="button" onClick={() => { setSuDone(""); setMode("signin"); }}
+                  className="mt-2 cursor-pointer rounded-[3px] bg-ink-900 px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.14em] text-amber-400 uppercase transition-colors hover:bg-ink-800">
+                  Back to sign in
+                </button>
+              </div>
+            )}
+
+            {mode === "signup" && !suDone && (
               <form onSubmit={doSignUp} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -279,8 +296,8 @@ export default function AuthScreen() {
                   {busy ? "Creating account…" : "Register — joins as Personnel"}
                 </button>
                 <p className="rounded-[3px] border border-line-300 bg-paper-200/70 px-3 py-2 font-mono text-[9px] leading-relaxed text-text-600">
-                  Your account is created in the unified personnel dataset — it appears on the Personnel Board and in the
-                  admin's User Accounts instantly. A Program Admin can elevate your role after verification.
+                  Your signup is held for a Program Administrator to verify and assign a role. Once approved, it appears on
+                  the Personnel Board and in User Accounts, and you can sign in.
                 </p>
               </form>
             )}
