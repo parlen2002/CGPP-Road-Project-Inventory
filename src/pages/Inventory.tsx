@@ -366,7 +366,7 @@ export default function Inventory({ selectedId, onSelect, onLocate }: {
       </div>
 
       {printing && (
-        <PrintPortal>
+        <PrintPortal orientation="landscape">
           <InventorySheet
             scopeNote="Project-ledger linked city roads"
             networkKm={openedKm}

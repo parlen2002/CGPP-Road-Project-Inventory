@@ -336,7 +336,7 @@ export default function Projects({ onLocate, onOpenRoad, onOpenCadastre }: {
       )}
 
       {printing && (
-        <PrintPortal>
+        <PrintPortal orientation="landscape">
           <LedgerSheet rows={filtered} scopeNote="Filtered project ledger" contractors={contractors} engineers={engineers} />
         </PrintPortal>
       )}

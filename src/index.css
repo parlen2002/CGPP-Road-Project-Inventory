@@ -143,15 +143,16 @@ input[type="range"].rpis-slider { -webkit-appearance: none; appearance: none; wi
 #print-root { display: none; }
 
 @media print {
-  /* default A4 LANDSCAPE — ledger, inventory. Detail sheet opts into portrait. */
-  @page { size: A4 landscape; margin: 9mm 11mm; }
-  @page rpisPortrait { size: A4 portrait; margin: 11mm 12mm; }
+  /* Orientation is injected per print-job by PrintPortal (@page size A4
+     portrait|landscape), because each job prints exactly one sheet type.
+     Only margins live here so they never collide with the injected size. */
+  @page { margin: 10mm 11mm; }
   html, body { background: #ffffff !important; height: auto !important; }
   #root { display: none !important; }
   #print-root { display: block !important; }
 
   .print-sheet { color: #15231c; font-family: var(--font-body); font-size: 12px; background: #ffffff; width: 100%; }
-  .print-portrait { page: rpisPortrait; font-size: 12.5px; }
+  .print-portrait { font-size: 12.5px; }
   .print-sheet + .print-sheet { page-break-before: always; }
   .pavoid { page-break-inside: avoid; }
   .phead { page-break-after: avoid; break-after: avoid; }

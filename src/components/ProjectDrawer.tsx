@@ -245,7 +245,7 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
       </aside>
 
       {printing && (
-        <PrintPortal>
+        <PrintPortal orientation="portrait">
           <ProjectSheet record={record} contractor={impl} engineer={engr} linkedRoad={linkedRoad} mapShot={mapShot} />
         </PrintPortal>
       )}

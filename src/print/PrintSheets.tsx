@@ -15,10 +15,24 @@ import { fmtArea } from "../lib/geo";
 import { runROWAnalysis } from "../data/cadastre";
 import { useStore } from "../state/store";
 
-export function PrintPortal({ children }: { children: ReactNode }) {
+export function PrintPortal({ children, orientation = "landscape" }: {
+  children: ReactNode;
+  /** every physical page of this print job inherits this orientation */
+  orientation?: "landscape" | "portrait";
+}) {
   const el = typeof document !== "undefined" ? document.getElementById("print-root") : null;
   if (!el) return null;
-  return createPortal(children, el);
+  /* a job-scoped @page rule — Chromium only honours a named page on the FIRST
+     physical page of a job, so we set the page box for the whole job here.
+     The sheet is unmounted before the next print, so rules never collide. */
+  const margin = orientation === "portrait" ? "11mm 12mm" : "9mm 11mm";
+  return createPortal(
+    <>
+      <style>{`@media print { @page { size: A4 ${orientation}; margin: ${margin}; } }`}</style>
+      {children}
+    </>,
+    el
+  );
 }
 
 export function usePrintSession(active: boolean, onDone: () => void) {
