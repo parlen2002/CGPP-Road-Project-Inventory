@@ -24,7 +24,7 @@ function Fit({ line }: { line: [number, number][] }) {
 
 export default function ROWImpact({ record, onOpenCadastre, captureRef }: {
   record: ProjectRecord;
-  onOpenCadastre?: () => void;
+  onOpenCadastre?: (centerlineId?: string) => void;
   /** attached to the map frame only — print snapshots never include the controls */
   captureRef?: React.Ref<HTMLDivElement>;
 }) {
@@ -45,7 +45,7 @@ export default function ROWImpact({ record, onOpenCadastre, captureRef }: {
             No centerline linked — import the project's KML / GPX in Lot &amp; ROW Analysis and link it to this record to compute lot overlaps and acquisition cost.
           </p>
           {onOpenCadastre && (
-            <button onClick={onOpenCadastre}
+            <button onClick={() => onOpenCadastre?.()}
               className="mt-3 cursor-pointer rounded-[3px] border border-teal-500 px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-wider text-teal-500 uppercase transition-colors hover:bg-teal-500 hover:text-paper-100">
               Open Lot &amp; ROW Analysis
             </button>
@@ -71,7 +71,7 @@ export default function ROWImpact({ record, onOpenCadastre, captureRef }: {
             <span className="text-[11px] leading-none transition-transform group-hover:scale-125">±</span> Buffer
           </button>
           {onOpenCadastre && (
-            <button onClick={onOpenCadastre} title="Open the full centerline editor in Lot & ROW Analysis"
+            <button onClick={() => onOpenCadastre?.(axis.id)} title="Open this centerline in Lot & ROW Analysis"
               className="cursor-pointer rounded-[3px] border border-ink-600 px-2 py-1 font-mono text-[8.5px] font-bold tracking-wider text-paper-300/60 uppercase transition-colors hover:border-amber-500/60 hover:text-amber-400">
               Lot &amp; ROW ⤢
             </button>
@@ -169,7 +169,7 @@ export default function ROWImpact({ record, onOpenCadastre, captureRef }: {
           record={record}
           axis={axis}
           onClose={() => setBufferOpen(false)}
-          onOpenFull={onOpenCadastre ? () => onOpenCadastre() : undefined}
+          onOpenFull={onOpenCadastre ? () => onOpenCadastre(axis.id) : undefined}
         />
       )}
     </div>

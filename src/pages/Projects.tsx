@@ -18,7 +18,7 @@ type Tab = "ledger" | "implementors" | "personnel" | "catalogs";
 export default function Projects({ onLocate, onOpenRoad, onOpenCadastre }: {
   onLocate: (point: [number, number], zoom?: number) => void;
   onOpenRoad: (roadId: string) => void;
-  onOpenCadastre: () => void;
+  onOpenCadastre: (centerlineId?: string) => void;
 }) {
   const { records, contractors, engineers, catalogItems } = useStore();
   const [tab, setTab] = useState<Tab>("ledger");

@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Polyline, Polygon, CircleMarker } from "react-leaflet";
-import { PageHeader, Reveal, CornerTicks, CountUp } from "../components/ui";
+import { PageHeader, Reveal, CornerTicks, CountUp, prefersReduced } from "../components/ui";
 import { useStore, setParcels, resetCadastre, addCenterline, updateCenterline, deleteCenterline } from "../state/store";
 import { runROWAnalysis, type Parcel, type Centerline, type AffectedLot } from "../data/cadastre";
 import { parseKML, parseGPX, parseGeoJSON, parseSHP, parseDBF, readText, readBuffer, detectKind, type LotFeature } from "../lib/vectorFormats";
@@ -13,14 +13,35 @@ import { IconUpload, IconTrash, IconPin, IconDownload } from "../components/icon
 
 type Tab = "cadastre" | "centerlines" | "affected";
 
-export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, number], zoom?: number) => void }) {
+export default function LotAnalysis({ onLocate, focusId }: {
+  onLocate: (p: [number, number], zoom?: number) => void;
+  /** deep-link: jump straight to this centerline (from the project detail links) */
+  focusId?: string | null;
+}) {
   const { parcels, centerlines, records, barangays } = useStore();
   const [tab, setTab] = useState<Tab>("cadastre");
   const [activeCl, setActiveCl] = useState<string | null>(centerlines[0]?.id ?? null);
   const [delCl, setDelCl] = useState<Centerline | null>(null);
+  const [highlightCl, setHighlightCl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const shpRings = useRef<GeoLatLng[][] | null>(null);
   const dbfRef = useRef<LotFeature["props"][] | null>(null);
+
+  /* deep-link: land on the Centerlines tab, select + spotlight the linked axis */
+  useEffect(() => {
+    if (!focusId) return;
+    setTab("centerlines");
+    setActiveCl(focusId);
+    setHighlightCl(focusId);
+    const scroll = setTimeout(() => {
+      document.getElementById(`cl-row-${focusId}`)?.scrollIntoView({
+        behavior: prefersReduced() ? "auto" : "smooth",
+        block: "center",
+      });
+    }, 140);
+    const clear = setTimeout(() => setHighlightCl(null), 3000);
+    return () => { clearTimeout(scroll); clearTimeout(clear); };
+  }, [focusId]);
 
   const cl = centerlines.find((c) => c.id === activeCl) ?? centerlines[0] ?? null;
   const analysis = useMemo(() => (cl ? runROWAnalysis(parcels, cl) : null), [parcels, cl]);
@@ -213,8 +234,14 @@ export default function LotAnalysis({ onLocate }: { onLocate: (p: [number, numbe
                 {centerlines.map((c) => {
                   const rec = c.projectId ? records.find((r) => r.id === c.projectId) : null;
                   return (
-                    <div key={c.id} onClick={() => setActiveCl(c.id)}
-                      className={`cursor-pointer rounded-[3px] border p-3 transition-all ${c.id === cl?.id ? "border-amber-500 bg-amber-500/[0.07]" : "border-line-300 bg-white/60 hover:border-ink-800"}`}>
+                    <div key={c.id} id={`cl-row-${c.id}`} onClick={() => setActiveCl(c.id)}
+                      className={`cursor-pointer rounded-[3px] border p-3 transition-all duration-300 ${
+                        highlightCl === c.id
+                          ? "border-amber-500 bg-amber-500/[0.12] shadow-[0_0_0_4px_rgba(240,163,43,0.28)]"
+                          : c.id === cl?.id
+                            ? "border-amber-500 bg-amber-500/[0.07]"
+                            : "border-line-300 bg-white/60 hover:border-ink-800"
+                      }`}>
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-mono text-[10.5px] font-bold text-ink-900">{c.id} · {c.name}</p>
                         <button onClick={(e) => { e.stopPropagation(); setDelCl(c); }}

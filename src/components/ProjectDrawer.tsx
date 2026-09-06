@@ -19,7 +19,7 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
   onLocate: (point: [number, number], zoom?: number) => void;
   onEdit?: (r: ProjectRecord) => void;
   onDelete?: (r: ProjectRecord) => void;
-  onOpenCadastre?: () => void;
+  onOpenCadastre?: (centerlineId?: string) => void;
 }) {
   const { contractors, engineers, roadsReg } = useStore();
   const [printing, setPrinting] = useState(false);

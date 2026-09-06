@@ -127,7 +127,12 @@ export default function App() {
     setPage("inventory");
   }, []);
 
-  const openCadastre = useCallback(() => setPage("cadastre"), []);
+  /* deep-link into Lot & ROW at a specific centerline */
+  const [cadastreFocus, setCadastreFocus] = useState<string | null>(null);
+  const openCadastre = useCallback((centerlineId?: string) => {
+    setCadastreFocus(centerlineId ?? null);
+    setPage("cadastre");
+  }, []);
 
   return (
     <ErrorBoundary>
@@ -140,7 +145,7 @@ export default function App() {
             {page === "overview" && <Overview focus={focus} onLocate={locate} onOpenInventory={openInventory} />}
             {page === "inventory" && <Inventory selectedId={invSelected} onSelect={setInvSelected} onLocate={(r) => locate(r.geometry[Math.floor(r.geometry.length / 2)], 15)} />}
             {page === "projects" && <Projects onLocate={locate} onOpenRoad={openInventory} onOpenCadastre={openCadastre} />}
-            {page === "cadastre" && <LotAnalysis onLocate={locate} />}
+            {page === "cadastre" && <LotAnalysis onLocate={locate} focusId={cadastreFocus} />}
             {page === "roads" && <Roads onLocate={locate} />}
             {page === "barangays" && <Barangays onLocate={locate} />}
             {page === "analytics" && <Analytics />}
