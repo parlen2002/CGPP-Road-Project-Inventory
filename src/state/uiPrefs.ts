@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 
-export type ThemeMode = "light" | "dark" | "pastel";
+export type ThemeMode = "light" | "dark" | "pastel" | "highend" | "cartoon" | "vibrant";
 
 export interface UiPrefs {
   mode: ThemeMode;
@@ -13,6 +13,17 @@ export interface UiPrefs {
   bodyFont: string;
   fontScale: number;    // 0.9 – 1.2
 }
+
+export interface ThemeMeta { id: ThemeMode; label: string; desc: string; sw: [string, string, string]; }
+
+export const THEMES: ThemeMeta[] = [
+  { id: "light", label: "Light", desc: "Paper & ink · the field standard", sw: ["#f5f7f0", "#0c1913", "#f0a32b"] },
+  { id: "dark", label: "Dark", desc: "Slate shell · low-light offices", sw: ["#1b241e", "#e9efe6", "#ffc24d"] },
+  { id: "pastel", label: "Pastel", desc: "Soft sage · gentle on the eyes", sw: ["#f3f6ea", "#3d5044", "#d9a83f"] },
+  { id: "highend", label: "High-End", desc: "Porcelain & brass · executive finish", sw: ["#f6f3ea", "#241f18", "#c9a227"] },
+  { id: "cartoon", label: "Cartoon", desc: "Bold ink & primary pop", sw: ["#fdf7e9", "#253a5e", "#ff6b35"] },
+  { id: "vibrant", label: "Vibrant", desc: "Saturated signal colors", sw: ["#f4f7fd", "#1b2a4a", "#ff8f00"] },
+];
 
 export const DISPLAY_FONTS: { label: string; value: string }[] = [
   { label: "Barlow Condensed (default)", value: `"Barlow Condensed", "Arial Narrow", sans-serif` },

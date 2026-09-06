@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Seal, IconLock, IconUser, IconStack, IconLogout } from "./icons";
+import { Seal, IconUser, IconLogout, IconBell, IconGear } from "./icons";
 import { useAuth, logout, approveReset, denyReset } from "../state/authStore";
 import { toast } from "./toast";
 import AccessControl from "./AccessControl";
@@ -87,6 +87,15 @@ export default function TopBar() {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+  /* auto-notify the admin when a new password reset request lands */
+  const prevPending = useRef(pendingResets);
+  useEffect(() => {
+    if (pendingResets > prevPending.current) {
+      toast("Password reset requested", "info", `${pendingResets} pending — open the bell to verify`);
+    }
+    prevPending.current = pendingResets;
+  }, [pendingResets]);
+
   /* close the account menu on outside click / Escape */
   useEffect(() => {
     if (!menuOpen) return;
@@ -114,22 +123,21 @@ export default function TopBar() {
 
       <span className="ml-auto" />
 
-      {can.users && (
-        <button onClick={() => setAccessOpen(true)}
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[3px] border border-ink-600 bg-ink-950/70 px-2.5 py-2 font-mono text-[9px] font-bold tracking-[0.14em] text-paper-300/70 uppercase transition-colors hover:border-amber-500/50 hover:text-amber-400"
-          title="Roles, permissions & user accounts">
-          <IconStack size={12} />
-          Roles
-        </button>
-      )}
-
+      {/* notification bell — password reset requests (admin only) */}
       {can.users && (
         <button onClick={() => setResetOpen(true)}
-          className="relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[3px] border border-ink-600 bg-ink-950/70 px-2.5 py-2 font-mono text-[9px] font-bold tracking-[0.14em] text-paper-300/70 uppercase transition-colors hover:border-amber-500/50 hover:text-amber-400">
-          <IconLock size={12} />
-          Resets
+          className={`relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border transition-all hover:scale-105 ${
+            pendingResets > 0
+              ? "border-amber-500/70 bg-amber-500/15 text-amber-400 shadow-[0_0_14px_rgba(240,163,43,0.25)]"
+              : "border-ink-600 bg-ink-950/70 text-paper-300/70 hover:border-amber-500/50 hover:text-amber-400"
+          }`}
+          title={pendingResets > 0 ? `${pendingResets} password reset request${pendingResets > 1 ? "s" : ""} awaiting verification` : "Notifications"}>
+          <IconBell size={16} />
           {pendingResets > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-coral-500 px-1 font-mono text-[8.5px] font-bold text-paper-100">{pendingResets}</span>
+            <>
+              <span className="absolute -top-1.5 -right-1.5 grid h-4 min-w-4 place-items-center rounded-full border border-ink-900 bg-coral-500 px-1 font-mono text-[8.5px] font-bold text-paper-100">{pendingResets}</span>
+              <span className="ring-ping absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-coral-400" aria-hidden />
+            </>
           )}
         </button>
       )}
@@ -165,6 +173,15 @@ export default function TopBar() {
                 <p className="flex justify-between gap-3 font-mono text-[9px] text-paper-300/60"><span>Account</span><span className="truncate text-paper-100">{user?.id ?? "guest"}</span></p>
               </div>
             </div>
+            {can.users && (
+              <button onClick={() => { setMenuOpen(false); setAccessOpen(true); }}
+                className="flex w-full cursor-pointer items-center gap-2.5 border-t border-ink-700 bg-ink-950/60 px-4 py-3 text-left font-mono text-[10px] font-bold tracking-[0.16em] text-amber-400 uppercase transition-colors hover:bg-ink-950">
+                <IconGear size={14} /> Settings · roles & look
+                {pendingResets > 0 && (
+                  <span className="ml-auto grid h-4 min-w-4 place-items-center rounded-full bg-coral-500 px-1 font-mono text-[8.5px] font-bold text-paper-100">{pendingResets}</span>
+                )}
+              </button>
+            )}
           </div>
         )}
       </div>

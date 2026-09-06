@@ -12,7 +12,7 @@ import ConfirmDialog from "./confirm";
 import { IconClose, IconPlus, IconTrash, IconEdit, IconLock, IconPalette } from "./icons";
 import { PersonForm, ChangePasswordForm } from "./profileForms";
 import {
-  useUiPrefs, setPrefs, DISPLAY_FONTS, BODY_FONTS, FONT_SCALES, type ThemeMode,
+  useUiPrefs, setPrefs, DISPLAY_FONTS, BODY_FONTS, FONT_SCALES, THEMES,
 } from "../state/uiPrefs";
 
 const PALETTE = ["#f0a32b", "#1ea899", "#de5a36", "#6f93cf", "#2f9a70", "#ef7450", "#8a6d3b", "#4a70b0"];
@@ -204,13 +204,9 @@ export default function AccessControl({ onClose }: { onClose: () => void }) {
             <div className="space-y-6">
               {/* theme mode */}
               <div>
-                <p className="mb-2.5 font-mono text-[10px] font-bold tracking-[0.18em] text-ink-900 uppercase">Console theme</p>
+                <p className="mb-2.5 font-mono text-[10px] font-bold tracking-[0.18em] text-ink-900 uppercase">Console theme · {THEMES.length} palettes</p>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  {([
-                    { id: "light", label: "Light", desc: "Paper & ink · the field standard", sw: ["#f5f7f0", "#0c1913", "#f0a32b"] },
-                    { id: "dark", label: "Dark", desc: "Slate shell · low-light offices", sw: ["#141b16", "#e8eee5", "#f0a32b"] },
-                    { id: "pastel", label: "Pastel", desc: "Soft sage · gentle on the eyes", sw: ["#edf3e6", "#41524a", "#d3a044"] },
-                  ] as { id: ThemeMode; label: string; desc: string; sw: string[] }[]).map((t) => (
+                  {THEMES.map((t) => (
                     <button key={t.id} onClick={() => { setPrefs({ mode: t.id }); toast(`${t.label} theme`, "updated", "applied to the console"); }}
                       className={`cursor-pointer rounded-[4px] border-2 p-3 text-left transition-all hover:-translate-y-0.5 ${
                         prefs.mode === t.id ? "border-amber-500 shadow-[0_8px_20px_rgba(240,163,43,0.2)]" : "border-line-300 hover:border-ink-600"}`}>

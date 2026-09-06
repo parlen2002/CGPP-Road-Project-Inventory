@@ -211,7 +211,7 @@ export default function Projects({ onLocate, onOpenRoad, onOpenCadastre }: {
 
           <div className="mt-4 overflow-hidden rounded-[4px] border-2 border-ink-800 bg-paper-100">
             <div className="thick-scroll max-h-[62vh] overflow-auto">
-              <table className="w-full min-w-[1280px] border-collapse">
+              <table className="w-full min-w-[1380px] border-collapse">
                 <thead className="bg-ink-900 text-paper-300">
                   <tr className="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-ink-900 [&>th]:border-b-2 [&>th]:border-amber-500/70 [&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-mono [&>th]:text-[9.5px] [&>th]:font-semibold [&>th]:tracking-[0.14em] [&>th]:uppercase">
                     <th>Project / Folder</th><th>Type</th><th>Mode</th><th>Implementor</th><th>In-Charge</th>
@@ -224,9 +224,9 @@ export default function Projects({ onLocate, onOpenRoad, onOpenCadastre }: {
                     const m = statusOf(r);
                     return (
                       <tr key={r.id} onClick={() => setOpenId(r.id)} className="group cursor-pointer transition-colors hover:bg-ink-900/[0.045]">
-                        <td className="px-3 py-2.5">
+                        <td className="min-w-[360px] max-w-[430px] px-3 py-2.5">
                           <p className="font-mono text-[9px] font-bold tracking-wide text-teal-500">{r.id} · {r.folderNo}</p>
-                          <p className="text-[12.5px] font-semibold text-ink-900 group-hover:text-pine-700">{r.name}</p>
+                          <p className="line-clamp-2 text-[12.5px] leading-snug font-semibold break-words text-ink-900 group-hover:text-pine-700" title={r.name}>{r.name}</p>
                         </td>
                         <td className="px-3 py-2.5"><span className="rounded-[3px] border border-ink-800/25 bg-ink-900/[0.06] px-1.5 py-0.5 font-mono text-[9.5px] font-bold tracking-wider uppercase">{typeAbbr(r.type)}</span></td>
                         <td className="px-3 py-2.5 font-mono text-[10px] text-text-600 uppercase">{r.mode.replace("By ", "")}</td>
