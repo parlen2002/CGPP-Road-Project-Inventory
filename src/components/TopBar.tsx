@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Seal, IconLock, IconUser, IconStack } from "./icons";
+import { useEffect, useRef, useState } from "react";
+import { Seal, IconLock, IconUser, IconStack, IconLogout } from "./icons";
 import { useAuth, logout, approveReset, denyReset } from "../state/authStore";
 import { toast } from "./toast";
 import AccessControl from "./AccessControl";
@@ -81,10 +81,21 @@ export default function TopBar() {
   const [now, setNow] = useState(() => new Date());
   const [resetOpen, setResetOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+  /* close the account menu on outside click / Escape */
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [menuOpen]);
 
   const time = now.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Manila" });
   const date = now.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "2-digit", year: "numeric", timeZone: "Asia/Manila" });
@@ -123,20 +134,39 @@ export default function TopBar() {
         </button>
       )}
 
-      <div className="flex shrink-0 items-center gap-2 rounded-[3px] border border-ink-600 bg-ink-950/70 py-1.5 pr-1.5 pl-2.5">
-        <span className="grid h-6 w-6 place-items-center rounded-[3px] text-paper-100" style={{ background: roleDef.color }}>
-          <IconUser size={14} />
-        </span>
-        <div className="hidden leading-none sm:block">
-          <p className="max-w-[170px] truncate font-mono text-[9.5px] font-semibold text-paper-100">{user?.name ?? "Guest Viewer"}</p>
-          <p className="mt-0.5 font-mono text-[8px] font-bold tracking-[0.14em] uppercase" style={{ color: roleDef.color }}>
-            {roleDef.label}{user?.divisionCode ? ` · ${user.divisionCode}` : ""}
-          </p>
-        </div>
-        <button onClick={() => logout()} title="Sign out"
-          className="ml-1 cursor-pointer rounded-[3px] border border-ink-600 px-2 py-1.5 font-mono text-[8.5px] font-bold tracking-[0.14em] text-paper-300/60 uppercase transition-colors hover:border-coral-500 hover:text-coral-400">
-          Out
+      <div className="relative shrink-0" ref={menuRef}>
+        <button onClick={() => setMenuOpen((o) => !o)} title="Account menu"
+          className="flex cursor-pointer items-center gap-2 rounded-[3px] border border-ink-600 bg-ink-950/70 py-1.5 pr-2 pl-2 transition-colors hover:border-amber-500/50">
+          <span className="grid h-6 w-6 place-items-center rounded-[3px] text-paper-100" style={{ background: roleDef.color }}>
+            <IconUser size={14} />
+          </span>
+          <span className="hidden max-w-[140px] truncate font-mono text-[9.5px] font-semibold text-paper-100 md:block">
+            {user?.name ?? "Guest Viewer"}
+          </span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"
+            className={`text-paper-300/60 transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}>
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
+
+        {menuOpen && (
+          <div className="anim-fade-up absolute right-0 top-full z-[70] mt-2 w-60 overflow-hidden rounded-[4px] border-2 border-ink-700 bg-ink-900 shadow-[0_18px_40px_rgba(7,17,12,0.55)]">
+            {/* sign out at the top */}
+            <button onClick={() => { setMenuOpen(false); logout(); }}
+              className="flex w-full cursor-pointer items-center gap-2.5 border-b border-ink-700 bg-coral-500/10 px-4 py-3 text-left font-mono text-[10px] font-bold tracking-[0.16em] text-coral-400 uppercase transition-colors hover:bg-coral-500/20">
+              <IconLogout size={14} /> Sign out
+            </button>
+            <div className="px-4 py-3">
+              <p className="font-display text-lg leading-tight font-bold text-paper-100">{user?.name ?? "Guest Viewer"}</p>
+              <p className="mt-0.5 font-mono text-[8.5px] font-bold tracking-[0.16em] uppercase" style={{ color: roleDef.color }}>{roleDef.label}</p>
+              <div className="mt-2.5 space-y-1.5 border-t border-ink-700 pt-2.5">
+                <p className="flex justify-between font-mono text-[9px] text-paper-300/60"><span>Division</span><span className="text-paper-100">{user?.divisionCode || user?.division || "—"}</span></p>
+                <p className="flex justify-between gap-3 font-mono text-[9px] text-paper-300/60"><span>Position</span><span className="truncate text-paper-100">{user?.position || "View-only"}</span></p>
+                <p className="flex justify-between gap-3 font-mono text-[9px] text-paper-300/60"><span>Account</span><span className="truncate text-paper-100">{user?.id ?? "guest"}</span></p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="hidden shrink-0 items-center gap-1.5 rounded-[3px] border border-ink-600 bg-ink-950/70 px-2.5 py-1.5 xl:flex">

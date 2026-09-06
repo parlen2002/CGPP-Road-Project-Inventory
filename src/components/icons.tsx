@@ -206,3 +206,20 @@ export const IconPrinter = (p: P) => (
     <path d="M16.5 10.8h.01" strokeWidth="2.4" />
   </svg>
 );
+
+export const IconLogout = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14" />
+    <path d="M9 8l-4 4 4 4M5 12h11" />
+  </svg>
+);
+
+export const IconPalette = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.5-1.8-.3-.9.2-1.7 1.2-1.7h1.8c2 0 3-1.3 3-3.5 0-5-3.6-10-7.5-10Z" />
+    <circle cx="8" cy="9" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="7" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="9" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="13.5" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+);

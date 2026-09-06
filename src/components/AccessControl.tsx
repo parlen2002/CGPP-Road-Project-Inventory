@@ -9,14 +9,18 @@ import { CAP_KEYS, type Capability, type RoleDef } from "../data/auth";
 import type { Person } from "../data/registry";
 import { toast } from "./toast";
 import ConfirmDialog from "./confirm";
-import { IconClose, IconPlus, IconTrash, IconEdit, IconLock } from "./icons";
+import { IconClose, IconPlus, IconTrash, IconEdit, IconLock, IconPalette } from "./icons";
 import { PersonForm, ChangePasswordForm } from "./profileForms";
+import {
+  useUiPrefs, setPrefs, DISPLAY_FONTS, BODY_FONTS, FONT_SCALES, type ThemeMode,
+} from "../state/uiPrefs";
 
 const PALETTE = ["#f0a32b", "#1ea899", "#de5a36", "#6f93cf", "#2f9a70", "#ef7450", "#8a6d3b", "#4a70b0"];
 
 export default function AccessControl({ onClose }: { onClose: () => void }) {
   const { roles, users, user: me } = useAuth();
-  const [tab, setTab] = useState<"roles" | "users">("roles");
+  const prefs = useUiPrefs();
+  const [tab, setTab] = useState<"roles" | "users" | "theme">("roles");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [delRole, setDelRole] = useState<RoleDef | null>(null);
@@ -58,11 +62,11 @@ export default function AccessControl({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex gap-1 border-b border-line-300 bg-paper-200/70 px-5 pt-3">
-          {([["roles", "Roles & Permissions"], ["users", `User Accounts · ${users.length}`]] as const).map(([id, label]) => (
+          {([["roles", "Roles & Permissions"], ["users", `User Accounts · ${users.length}`], ["theme", "Look & Feel"]] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               className={`cursor-pointer rounded-t-[3px] border-2 border-b-0 px-4 py-2 font-mono text-[10px] font-bold tracking-[0.14em] uppercase transition-colors ${
                 tab === id ? "border-ink-800 bg-paper-100 text-ink-900" : "border-transparent text-text-400 hover:text-text-600"}`}>
-              {label}
+              {id === "theme" ? <span className="flex items-center gap-1.5"><IconPalette size={13} />{label}</span> : label}
             </button>
           ))}
         </div>
@@ -193,6 +197,82 @@ export default function AccessControl({ onClose }: { onClose: () => void }) {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {tab === "theme" && (
+            <div className="space-y-6">
+              {/* theme mode */}
+              <div>
+                <p className="mb-2.5 font-mono text-[10px] font-bold tracking-[0.18em] text-ink-900 uppercase">Console theme</p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {([
+                    { id: "light", label: "Light", desc: "Paper & ink · the field standard", sw: ["#f5f7f0", "#0c1913", "#f0a32b"] },
+                    { id: "dark", label: "Dark", desc: "Slate shell · low-light offices", sw: ["#141b16", "#e8eee5", "#f0a32b"] },
+                    { id: "pastel", label: "Pastel", desc: "Soft sage · gentle on the eyes", sw: ["#edf3e6", "#41524a", "#d3a044"] },
+                  ] as { id: ThemeMode; label: string; desc: string; sw: string[] }[]).map((t) => (
+                    <button key={t.id} onClick={() => { setPrefs({ mode: t.id }); toast(`${t.label} theme`, "updated", "applied to the console"); }}
+                      className={`cursor-pointer rounded-[4px] border-2 p-3 text-left transition-all hover:-translate-y-0.5 ${
+                        prefs.mode === t.id ? "border-amber-500 shadow-[0_8px_20px_rgba(240,163,43,0.2)]" : "border-line-300 hover:border-ink-600"}`}>
+                      <div className="flex gap-1">
+                        {t.sw.map((c, i) => <span key={i} className="h-6 flex-1 rounded-[2px] border border-ink-900/10" style={{ background: c }} />)}
+                      </div>
+                      <p className="mt-2.5 font-display text-lg leading-none font-bold text-ink-900 uppercase">{t.label}</p>
+                      <p className="mt-1 font-mono text-[8.5px] tracking-wider text-text-400 uppercase">{t.desc}</p>
+                      {prefs.mode === t.id && <p className="mt-1.5 font-mono text-[8.5px] font-bold tracking-wider text-amber-600 uppercase">● Active</p>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* fonts */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="mb-2.5 font-mono text-[10px] font-bold tracking-[0.18em] text-ink-900 uppercase">Display face — headings</p>
+                  <div className="space-y-1.5">
+                    {DISPLAY_FONTS.map((f) => (
+                      <button key={f.value} onClick={() => { setPrefs({ displayFont: f.value }); toast(f.label, "updated", "display face changed"); }}
+                        className={`flex w-full cursor-pointer items-center justify-between rounded-[3px] border px-3 py-2 transition-colors ${
+                          prefs.displayFont === f.value ? "border-amber-500 bg-amber-500/10" : "border-line-300 hover:border-ink-600"}`}>
+                        <span style={{ fontFamily: f.value }} className="text-lg font-bold text-ink-900">Road Project Inventory</span>
+                        {prefs.displayFont === f.value && <span className="font-mono text-[8.5px] font-bold text-amber-600 uppercase">●</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2.5 font-mono text-[10px] font-bold tracking-[0.18em] text-ink-900 uppercase">Body face — labels & text</p>
+                  <div className="space-y-1.5">
+                    {BODY_FONTS.map((f) => (
+                      <button key={f.value} onClick={() => { setPrefs({ bodyFont: f.value }); toast(f.label, "updated", "body face changed"); }}
+                        className={`flex w-full cursor-pointer items-center justify-between rounded-[3px] border px-3 py-2 transition-colors ${
+                          prefs.bodyFont === f.value ? "border-amber-500 bg-amber-500/10" : "border-line-300 hover:border-ink-600"}`}>
+                        <span style={{ fontFamily: f.value }} className="text-[13px] font-semibold text-ink-900">Office of the City Engineer</span>
+                        {prefs.bodyFont === f.value && <span className="font-mono text-[8.5px] font-bold text-amber-600 uppercase">●</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* scale */}
+              <div>
+                <p className="mb-2.5 font-mono text-[10px] font-bold tracking-[0.18em] text-ink-900 uppercase">Interface size</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {FONT_SCALES.map((s) => (
+                    <button key={s.value} onClick={() => { setPrefs({ fontScale: s.value }); toast(s.label, "updated", "interface size changed"); }}
+                      className={`cursor-pointer rounded-[3px] border px-3 py-2.5 font-mono text-[10px] font-bold tracking-wider uppercase transition-colors ${
+                        prefs.fontScale === s.value ? "border-amber-500 bg-amber-500/10 text-amber-600" : "border-line-300 text-text-600 hover:border-ink-600"}`}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="rounded-[3px] border border-line-300 bg-paper-200/70 px-3 py-2.5 font-mono text-[9px] leading-relaxed tracking-wider text-text-600 uppercase">
+                These settings apply to the on-screen console only and are saved per browser. Printed sheets (A4
+                ledger, inventory &amp; project detail) always use the fixed drafting style, so paper output is never affected.
+              </p>
             </div>
           )}
         </div>

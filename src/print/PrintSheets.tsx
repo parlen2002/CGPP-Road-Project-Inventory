@@ -121,16 +121,21 @@ export function PrintPortal({ children, orientation = "landscape" }: {
 
 export function usePrintSession(active: boolean, onDone: () => void) {
   const fired = useRef(false);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  /* depend only on `active` — the map-capture re-render (new onDone identity)
+     must not tear down the scheduled window.print() call. */
   useEffect(() => {
     if (!active) { fired.current = false; return; }
     if (fired.current) return;
     fired.current = true;
     const t = setTimeout(() => {
       window.print();
-      onDone();
-    }, 380);
+      doneRef.current();
+    }, 450);
     return () => clearTimeout(t);
-  }, [active, onDone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 }
 
 /* ---------------- LEDGER (landscape) ---------------- */

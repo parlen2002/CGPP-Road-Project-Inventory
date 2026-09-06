@@ -153,7 +153,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen overflow-hidden bg-paper-200">
+      <div className="app-shell flex h-screen overflow-hidden bg-paper-200">
         <Sidebar page={page} onNavigate={navigate} />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar />

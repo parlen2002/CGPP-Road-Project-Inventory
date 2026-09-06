@@ -131,6 +131,74 @@ input[type="range"].rpis-slider { -webkit-appearance: none; appearance: none; wi
 /* ---------- misc ---------- */
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* ============================================================
+   THEMES — admin-selectable (Access Control → Look & Feel).
+   Scoped entirely to the on-screen app; the print engine renders
+   #print-root with its own fixed styles, so themes never leak
+   into paper output.
+   ============================================================ */
+
+/* UI font scale (zoom on the app shell only, never print) */
+.app-shell { zoom: var(--ui-zoom, 1); }
+
+/* ---- DARK — deep slate shell, lifted surfaces & text ---- */
+[data-theme="dark"] {
+  --color-paper-100: #1e2821;   /* card surface (also drives /opacity variants) */
+  --color-paper-200: #141b16;   /* page bg */
+  --color-paper-300: #26312a;
+  --color-line-300: #2e3b33;
+  --color-line-400: #3e4d44;
+  --color-text-900: #e8eee5;
+  --color-text-600: #a9b8aa;
+  --color-text-400: #87978a;
+  --color-ink-950: #0b100d;
+  --color-ink-850: #131a15;
+  --color-ink-800: #1a231d;
+  --color-ink-700: #243029;
+  --color-ink-600: #31413a;
+}
+[data-theme="dark"] .bg-paper-100 { background-color: #1e2821; }
+[data-theme="dark"] .bg-ink-900 { background-color: #171f1a; }
+[data-theme="dark"] .text-ink-900 { color: #e8eee5; }
+[data-theme="dark"] .text-paper-100 { color: #e8eee5; }
+[data-theme="dark"] .text-paper-300 { color: #c2cec4; }
+[data-theme="dark"] .border-ink-800 { border-color: #2a362e; }
+[data-theme="dark"] .border-ink-700 { border-color: #243029; }
+[data-theme="dark"] .border-ink-600 { border-color: #31413a; }
+[data-theme="dark"] .bg-white\/70,
+[data-theme="dark"] .bg-white\/60,
+[data-theme="dark"] .bg-white\/80,
+[data-theme="dark"] .bg-white\/50 { background-color: rgba(38, 48, 42, 0.72); }
+[data-theme="dark"] .bg-white { background-color: #26302a; }
+[data-theme="dark"] .divide-line-300 > * + * { border-color: #2e3b33; }
+
+/* ---- PASTEL — soft sage & warm paper ---- */
+[data-theme="pastel"] {
+  --color-paper-100: #fbfaf4;
+  --color-paper-200: #edf3e6;
+  --color-paper-300: #e2ebd8;
+  --color-line-300: #d4dfc9;
+  --color-line-400: #c3d2b6;
+  --color-text-900: #41524a;
+  --color-text-600: #6d8070;
+  --color-text-400: #94a593;
+  --color-ink-950: #2c3a33;
+  --color-ink-900: #33423a;
+  --color-ink-850: #3a4a41;
+  --color-ink-800: #42544a;
+  --color-ink-700: #4d6155;
+  --color-ink-600: #5b7163;
+  --color-amber-400: #e3b054;
+  --color-amber-500: #d3a044;
+  --color-pine-600: #2e7d5b;
+}
+[data-theme="pastel"] .text-paper-100 { color: #f2f0e4; }
+[data-theme="pastel"] .text-paper-300 { color: #dfe5d2; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
 /* ---------- screen-only readability lift (never leaks into print) ---------- */
 @media screen {
   body { font-size: 15.5px; }

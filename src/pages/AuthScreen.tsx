@@ -102,14 +102,14 @@ export default function AuthScreen() {
   const tabBtn = (m: Mode, label: string) => (
     <button onClick={() => { setMode(m); setError(""); }}
       className={`flex-1 cursor-pointer rounded-t-[3px] border-2 border-b-0 px-3 py-2.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase transition-colors ${
-        mode === m ? "border-ink-800 bg-paper-100 text-ink-900" : "border-transparent text-paper-300/50 hover:text-paper-100"
+        mode === m ? "border-ink-800 bg-paper-100 text-ink-900" : "border-transparent text-text-400 hover:text-ink-900"
       }`}>
       {label}
     </button>
   );
 
   return (
-    <div className="bg-grid-dark relative flex h-screen items-center justify-center overflow-y-auto bg-ink-950 p-6">
+    <div className="app-shell bg-grid-dark relative flex h-screen items-center justify-center overflow-y-auto bg-ink-950 p-6">
       {/* ambient contour lines */}
       <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.1]" preserveAspectRatio="none" viewBox="0 0 1200 800">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
