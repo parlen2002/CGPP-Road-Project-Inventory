@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { useStore, updateRoleCaps, addRole, deleteRole } from "../state/store";
-import { useAuth, setPersonRole, deletePerson } from "../state/authStore";
+import { useAuth, setPersonRole, deletePerson, verifyPerson, denyPerson } from "../state/authStore";
 import { CAP_KEYS, type Capability, type RoleDef } from "../data/auth";
 import type { Person } from "../data/registry";
 import { toast } from "./toast";
@@ -16,6 +16,39 @@ import {
 } from "../state/uiPrefs";
 
 const PALETTE = ["#f0a32b", "#1ea899", "#de5a36", "#6f93cf", "#2f9a70", "#ef7450", "#8a6d3b", "#4a70b0"];
+
+/* one pending signup — admin assigns the role, then confirms or denies */
+function VerifyRow({ person }: { person: Person }) {
+  const { roles } = useAuth();
+  const [role, setRole] = useState("personnel");
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-semibold text-ink-900">{person.name}</p>
+        <p className="font-mono text-[9px] text-text-400">
+          {person.email} · {person.divisionCode ? `${person.divisionCode} · ` : ""}{person.division} · {person.position}
+        </p>
+      </div>
+      <label className="flex items-center gap-2">
+        <span className="font-mono text-[8.5px] font-bold tracking-[0.14em] text-text-400 uppercase">Assign role</span>
+        <select value={role} onChange={(e) => setRole(e.target.value)}
+          className="cursor-pointer rounded-[3px] border border-line-400 bg-white px-2 py-1.5 font-mono text-[10.5px] font-bold text-ink-900 focus:border-amber-600 focus:outline-none">
+          {roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+        </select>
+      </label>
+      <div className="flex gap-1.5">
+        <button onClick={() => verifyPerson(person.id, role)}
+          className="cursor-pointer rounded-[3px] bg-pine-600 px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.12em] text-paper-100 uppercase transition-colors hover:bg-pine-500">
+          Verify & activate
+        </button>
+        <button onClick={() => denyPerson(person.id)}
+          className="cursor-pointer rounded-[3px] border border-coral-500 px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.12em] text-coral-600 uppercase transition-colors hover:bg-coral-500 hover:text-paper-100">
+          Deny
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AccessControl({ onClose }: { onClose: () => void }) {
   const { roles, users, user: me } = useAuth();
@@ -146,8 +179,26 @@ export default function AccessControl({ onClose }: { onClose: () => void }) {
             <div>
               <p className="mb-2 font-mono text-[9.5px] leading-relaxed tracking-wider text-text-400 uppercase">
                 One dataset — these rows are the same accounts shown on the Personnel Board. Create an account and the
-                person appears in both places instantly.
+                person appears in both places instantly. New signups wait here for verification.
               </p>
+
+              {/* pending signups awaiting admin verification */}
+              {users.some((u) => u.verified === false) && (
+                <div className="mb-4 overflow-hidden rounded-[4px] border-2 border-amber-500/70">
+                  <div className="flex items-center gap-2 bg-amber-500/15 px-3 py-2">
+                    <span className="dot-live h-2 w-2 rounded-full bg-amber-500" />
+                    <p className="font-mono text-[9.5px] font-bold tracking-[0.16em] text-amber-600 uppercase">
+                      Pending verification · {users.filter((u) => u.verified === false).length}
+                    </p>
+                  </div>
+                  <div className="divide-y divide-line-300 bg-paper-100">
+                    {users.filter((u) => u.verified === false).map((u) => (
+                      <VerifyRow key={u.id} person={u} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="overflow-hidden rounded-[4px] border border-line-300">
                 <table className="w-full border-collapse">
                   <thead className="bg-ink-900 text-paper-300">
@@ -156,7 +207,7 @@ export default function AccessControl({ onClose }: { onClose: () => void }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-300">
-                    {users.map((u) => {
+                    {users.filter((u) => u.verified !== false).map((u) => {
                       const def = roles.find((r) => r.id === u.role);
                       return (
                         <tr key={u.id} className="transition-colors hover:bg-paper-200/60">

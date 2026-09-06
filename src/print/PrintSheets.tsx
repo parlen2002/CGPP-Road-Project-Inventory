@@ -339,8 +339,8 @@ export function ProjectSheet({ record, contractor, engineer, linkedRoad, mapShot
   let sec = 0;
   const no2 = () => String(++sec).padStart(2, "0");
   const idNo = no2(), partyNo = no2(), locNo = no2();
-  const mapNo = mapShot ? no2() : "";
   const scopeNo = no2(), schedNo = no2();
+  const mapNo = mapShot ? no2() : "";
   const techNo = specRows.length ? no2() : "";
   const rowNo = row ? no2() : "";
   const ordNo = record.variations.length || record.suspensions.length ? no2() : "";
@@ -419,18 +419,6 @@ export function ProjectSheet({ record, contractor, engineer, linkedRoad, mapShot
         </div>
       </div>
 
-      {mapNo && mapShot && (
-        <>
-          <SectionHead n={mapNo} t="Project Map — Location & Corridor" />
-          <div className="pavoid pstick" style={{ border: `2px solid ${INK}` }}>
-            <img src={mapShot} alt={`${record.name} — location and corridor map`} style={{ width: "100%", display: "block", maxHeight: 300, objectFit: "cover", objectPosition: "center" }} />
-            <p className="pmono" style={{ fontSize: 9, color: "#47584d", padding: "5px 10px", margin: 0, letterSpacing: "0.1em", textTransform: "uppercase", background: "#f5f7f0" }}>
-              Lot &amp; ROW view · centerline axis {axis?.id ?? ""} · affected lots (green government / red private) · OpenStreetMap · EPSG:3857
-            </p>
-          </div>
-        </>
-      )}
-
       <SectionHead n={scopeNo} t="Scope & Financials" />
       <div className="pavoid pstick" style={{ display: "flex", gap: 10 }}>
         <Money label="Linear length" value={`${record.linearLength.toLocaleString()} m`} sub="station extent" />
@@ -450,6 +438,18 @@ export function ProjectSheet({ record, contractor, engineer, linkedRoad, mapShot
           <Field k="Adjusted completion" v={<><b style={{ color: "#cf8812" }}>{fmtDate(adjustedCompletion)}</b> <span className="pmono" style={{ color: "#47584d" }}>(+{extDays} d from orders) · adjusted contract {fmtPesoM(adjustedAmount)}</span></>} />
         )}
       </div>
+
+      {mapNo && mapShot && (
+        <>
+          <SectionHead n={mapNo} t="Project Map — Location & Corridor" />
+          <div className="pavoid pstick" style={{ border: `2px solid ${INK}` }}>
+            <img src={mapShot} alt={`${record.name} — location and corridor map`} style={{ width: "100%", display: "block", maxHeight: 300, objectFit: "cover", objectPosition: "center" }} />
+            <p className="pmono" style={{ fontSize: 9, color: "#47584d", padding: "5px 10px", margin: 0, letterSpacing: "0.1em", textTransform: "uppercase", background: "#f5f7f0" }}>
+              Lot &amp; ROW view · centerline axis {axis?.id ?? ""} · affected lots (green government / red private) · OpenStreetMap · EPSG:3857
+            </p>
+          </div>
+        </>
+      )}
 
       {techNo && specRows.length > 0 && (
         <>

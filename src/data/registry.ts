@@ -21,6 +21,8 @@ export interface Person extends NameParts {
   prc: string;
   phone: string;
   createdAt: string;
+  /** false until the Program Admin verifies the signup and assigns the role */
+  verified?: boolean;
 }
 
 /* ---------------- attachments ---------------- */
@@ -207,6 +209,7 @@ export function seedPersonnel(): Person[] {
     id, ...np, name: joinName(np), email, passHash: "", salt: `seed-${id}`, role,
     position, division, divisionCode, prc, phone: "(048) 434-2811",
     createdAt: "2026-01-05T08:00:00.000Z",
+    verified: true, // provisioned accounts — already confirmed
   }));
 }
 

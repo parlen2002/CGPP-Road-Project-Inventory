@@ -90,6 +90,9 @@ export async function login(email: string, password: string): Promise<{ ok: bool
   if (!p) return { ok: false, error: "No account with that email." };
   const hash = await hashPassword(password, p.salt);
   if (hash !== p.passHash) return { ok: false, error: "Incorrect password." };
+  if (p.verified === false) {
+    return { ok: false, error: "Account pending verification. A Program Administrator must confirm your signup and assign a role before you can sign in." };
+  }
   commit({ ...s, session: p.id });
   toast(`Signed in — ${p.name}`, "info", `${p.position} · ${p.divisionCode || p.division}`);
   return { ok: true };
@@ -135,9 +138,33 @@ export async function addPerson(input: PersonInput): Promise<{ ok: boolean; id?:
     role: input.role, position: input.position, division: input.division,
     divisionCode: input.divisionCode, prc: input.prc, phone: input.phone,
     createdAt: new Date().toISOString(),
+    verified: false, // held for Program Admin verification + role assignment
   };
   commit({ ...s, personnel: [...s.personnel, person] });
   return { ok: true, id };
+}
+
+/** Program Admin confirms a pending signup and assigns its role. */
+export function verifyPerson(id: string, roleId: string): { ok: boolean; error?: string } {
+  const s = getSnapshotState();
+  const p = s.personnel.find((x) => x.id === id);
+  if (!p) return { ok: false, error: "Account not found." };
+  commit({
+    ...s,
+    personnel: s.personnel.map((x) => (x.id === id ? { ...x, verified: true, role: roleId } : x)),
+  });
+  toast(`${p.name} verified`, "updated", `role assigned · sign-in enabled`);
+  return { ok: true };
+}
+
+/** Program Admin rejects a pending signup — the account is removed. */
+export function denyPerson(id: string): { ok: boolean; error?: string } {
+  const s = getSnapshotState();
+  const p = s.personnel.find((x) => x.id === id);
+  if (!p) return { ok: false, error: "Account not found." };
+  commit({ ...s, personnel: s.personnel.filter((x) => x.id !== id) });
+  toast(`${p.name} signup denied`, "deleted", "account removed");
+  return { ok: true };
 }
 
 export function updatePerson(id: string, patch: Partial<Omit<Person, "id" | "passHash" | "salt">>) {

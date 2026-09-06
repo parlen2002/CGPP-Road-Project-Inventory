@@ -225,13 +225,32 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
             </div>
           </div>
 
-          <ROWImpact record={record} onOpenCadastre={onOpenCadastre} captureRef={rowMapRef} />
+          {/* scope & financials — between location and the map */}
+          <div className="mt-4 rounded-[3px] border border-line-300 bg-paper-100 p-4">
+            <p className="font-mono text-[9px] font-bold tracking-[0.16em] text-text-600 uppercase">Scope & Financials</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <p className="font-mono text-[8.5px] tracking-[0.14em] text-text-400 uppercase">Linear length</p>
+                <p className="mt-0.5 font-mono text-[11.5px] font-semibold text-ink-900">{record.linearLength.toLocaleString()} m</p>
+              </div>
+              <div>
+                <p className="font-mono text-[8.5px] tracking-[0.14em] text-text-400 uppercase">Contracted amount</p>
+                <p className="mt-0.5 font-mono text-[11.5px] font-semibold text-ink-900">{fmtPesoM(record.contractedAmount)}</p>
+              </div>
+              <div>
+                <p className="font-mono text-[8.5px] tracking-[0.14em] text-text-400 uppercase">Actual amount</p>
+                <p className="mt-0.5 font-mono text-[11.5px] font-semibold text-ink-900">{record.actualAmount ? fmtPesoM(record.actualAmount) : "—"}</p>
+              </div>
+              <div>
+                <p className="font-mono text-[8.5px] tracking-[0.14em] text-text-400 uppercase">Variance</p>
+                <p className={`mt-0.5 font-mono text-[11.5px] font-semibold ${(record.contractedAmount - record.actualAmount) >= 0 ? "text-pine-600" : "text-coral-600"}`}>
+                  {fmtPesoM(record.contractedAmount - record.actualAmount)}
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <DocumentIntake record={record} />
-
-          <RecordDetails record={record} />
-
-          {/* schedule */}
+          {/* schedule — between scope and the map */}
           <div className="mt-4 rounded-[3px] border border-line-300 bg-paper-100 p-4">
             <p className="flex items-center gap-2 font-mono text-[9px] font-bold tracking-[0.16em] text-text-600 uppercase"><IconCalendar size={12} /> Schedule</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -257,6 +276,12 @@ export default function ProjectDrawer({ record, onClose, onLocate, onEdit, onDel
               </div>
             </div>
           </div>
+
+          <ROWImpact record={record} onOpenCadastre={onOpenCadastre} captureRef={rowMapRef} />
+
+          <DocumentIntake record={record} />
+
+          <RecordDetails record={record} />
 
           {/* notes */}
           <div className="mt-4 rounded-[3px] border border-line-300 bg-amber-500/[0.07] p-4">
