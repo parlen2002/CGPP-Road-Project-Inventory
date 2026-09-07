@@ -7,54 +7,42 @@ Django PostGIS Road Inventory System
 **Client:** Office of the City Engineer (OCE) · GIS Unit  
 **Location:** Puerto Princesa City · Palawan · Republic of the Philippines  
 
-RPIS is a comprehensive, enterprise-grade Geographic Information System (GIS) dashboard designed for municipal infrastructure management. It provides city engineers and planners with real-time spatial data, road inventory tracking, cadastre analysis, and project monitoring.
+RPIS is a comprehensive, local-first Geographic Information System (GIS) dashboard designed for municipal infrastructure management. It provides city engineers and planners with real-time spatial data, road inventory tracking, cadastre analysis, and project monitoring, featuring a highly responsive, offline-capable architecture.
 
 ---
 
 ## 🌟 Key Features
 
-- **Interactive GIS Overview:** High-performance map view with dynamic focus, zoom, and spatial querying.
-- **Road & Project Lifecycle Management:** Detailed tracking of road networks, infrastructure projects, suspensions, and variation orders.
-- **Unified Personnel & Accounts:** System users, project signatories, and personnel board profiles share a single dataset, preventing data drift.
-- **Cadastre & Lot Analysis:** Spatial analysis tools for property lines, parcels, and centerline mapping.
-- **Granular RBAC:** Role-Based Access Control with specific capabilities (Create, Read, Update, Delete, Catalog, Users, Print).
-- **Resilient UI:** Custom Error Boundaries to prevent silent white-screen failures, with built-in data reseeding capabilities.
-
----
-
-## 🏗️ Architecture & Data Model
-
-RPIS operates as a highly responsive, offline-capable client application backed by a custom state-management engine.
-
-- **Single Source of Truth (`Snapshot`):** The entire application state is held in a centralized `Snapshot` object managed via React's `useSyncExternalStore`.
-- **High-Performance Persistence:** State is persisted to `localStorage`. To ensure UI mutations remain instant and to avoid quota limits, large file attachments (Raw Archives) are split and stored in separate `localStorage` keys (`rpis-raw:*`), rehydrating only when needed.
-- **Referential Integrity:** Deleting a contractor, barangay, or road registry item automatically cascades through the database, unlinking or cleaning up associated project records.
-
-### Core Domain Entities
-| Entity | Description |
-| :--- | :--- |
-| `ProjectRecord` | Infrastructure projects with technical specs, revisions, actuals, suspensions, and variations. |
-| `Person` / `Contractor` | Unified personnel/user accounts and external implementors. |
-| `Parcel` / `Centerline` | Cadastral lots and road centerlines for spatial mapping. |
-| `Barangay` / `RoadReg` | Geographic and administrative district/street registries. |
-| `CatalogItem` | Standardized materials, specs, or project templates. |
+- **Interactive GIS Mapping:** High-performance spatial visualization using `react-leaflet`, with dynamic focus, zoom, and custom WMS layer integration.
+- **Drag-and-Drop Management:** Intuitive reordering of project records, attachments, and inventory items using `@dnd-kit`.
+- **Unified Data Model:** A single source of truth for personnel, user accounts, contractors, and project records, preventing data drift and ensuring referential integrity.
+- **Advanced Analytics:** Data visualization and reporting dashboards powered by `recharts`.
+- **Report Generation:** Client-side map and document export capabilities using `html2canvas` for official signatories and printing.
+- **Resilient Local-First Architecture:** Custom `useSyncExternalStore` engine that persists state to `localStorage` instantly, splitting large raw file archives to prevent quota limits, with optional Supabase synchronization.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **Framework:** React 18+ with TypeScript
-- **Styling:** TailwindCSS (Custom "Technical/Brutalist" Theme)
-- **State Management:** Custom `useSyncExternalStore` implementation with `localStorage` persistence
-- **Build Tool:** Vite (inferred)
+### Core Frontend
+- **Framework:** React 18 + TypeScript (ES Modules)
+- **Build Tool:** Vite 6.3
+- **Styling:** Tailwind CSS v4 (with custom technical/brutalist theme)
+- **Animations:** Framer Motion
 
-### Backend & GIS Infrastructure
-- **Backend API:** Django 6.1
-- **Spatial Database:** PostGIS 3.5
-- **Geospatial Libraries:** GDAL 3.10
-- **Map Services:** GeoServer WMS
-- **Coordinate Systems:** EPSG:4326 / EPSG:3857
+### Mapping & Visualization
+- **GIS Engine:** Leaflet + `react-leaflet`
+- **Charts:** Recharts
+
+### Backend & Services
+- **Authentication / Database:** Supabase (`@supabase/supabase-js`)
+- **Local Persistence:** Custom `localStorage` snapshot engine with raw archive separation
+
+### Utilities
+- **Routing:** React Router DOM (with custom state-based fallbacks)
+- **Icons:** Lucide React + Custom SVGs
+- **Data/Time:** `date-fns`, `uuid`
+- **Export:** `html2canvas`, `canvas-confetti` (for UX feedback)
 
 ---
 
@@ -62,15 +50,31 @@ RPIS operates as a highly responsive, offline-capable client application backed 
 
 ```text
 src/
-├── App.tsx                 # Main application shell, routing, and layout
-├── components/             # Reusable UI components (TopBar, Sidebar, MapView, Toast)
-├── data/                   # Domain logic, seed data, and type definitions
+├── App.tsx                 # Main application shell, error boundaries, and layout
+├── components/             # Reusable UI components
+│   ├── MapView.tsx         # Core React-Leaflet map implementation
+│   ├── Sidebar.tsx         # Navigation (with dnd-kit capabilities if applicable)
+│   ├── TopBar.tsx          # Header, user controls, and global actions
+│   ├── toast.tsx           # Notification system
+│   └── icons.tsx           # Custom SVG icons (e.g., OCE Seal)
+├── data/                   # Domain logic, seed data, and TypeScript definitions
 │   ├── auth.ts             # Roles, capabilities, and guest definitions
-│   ├── barangays.ts        # Barangay geographic data and types
-│   ├── cadastre.ts         # Parcels and centerlines generation
-│   ├── catalogs.ts         # Standardized catalog items
+│   ├── barangays.ts        # Geographic data for districts
+│   ├── cadastre.ts         # Parcels and road centerlines
+│   ├── catalogs.ts         # Standardized materials and templates
 │   ├── registry.ts         # Core project records, contractors, personnel
 │   └── roadsRegistry.ts    # Road network definitions
+├── state/                  # Global state management
+│   ├── authStore.ts        # Supabase authentication and session logic
+│   └── store.ts            # Centralized local-first state store (Snapshot, Mutations)
+└── pages/                  # Feature modules
+    ├── AuthScreen.tsx      # Secure Supabase login/session establishment
+    ├── Overview.tsx        # Main GIS dashboard (Map + Ticker)
+    ├── Inventory.tsx       # Road inventory details (with drag-and-drop)
+    ├── Projects.tsx        # Infrastructure projects lifecycle
+    ├── LotAnalysis.tsx     # Cadastre and lot mapping
+    ├── Analytics.tsx       # Recharts data reporting
+    └── System.tsx          # Admin, roles, and settings
 ├── state/                  # Global state management
 │   ├── authStore.ts        # Authentication and session logic
 │   └── store.ts            # Centralized state store (Snapshot, Mutations, Persistence)
