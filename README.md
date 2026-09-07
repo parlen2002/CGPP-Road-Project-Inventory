@@ -1,8 +1,6 @@
 # CGPP-Road-Project-Inventory
 Django PostGIS Road Inventory System
 
-# RPIS (Road & Property Information System)
-
 **Version:** 3.0 (Rev C)  
 **Client:** Office of the City Engineer (OCE) · GIS Unit  
 **Location:** Puerto Princesa City · Palawan · Republic of the Philippines  
