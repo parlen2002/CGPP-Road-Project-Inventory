@@ -1,5 +1,5 @@
 # CGPP-Road-Project-Inventory
-Django PostGIS Road Inventory System
+Road Inventory System
 
 A browser-based road inventory and project monitoring application for the Office of the City Engineer, Puerto Princesa City, Palawan. RPIS combines project records, road mapping, cadastral overlays, and right-of-way (ROW) analysis in one interface.
 
